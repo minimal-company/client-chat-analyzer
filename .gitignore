@@ -1,0 +1,14 @@
+node_modules/
+dist/
+
+# Secretos y datos de clientes: nunca al repositorio.
+.env
+.env.*
+!.env.example
+data/
+.cases/
+*.zip
+*.tgz
+*.opus
+
+*.log

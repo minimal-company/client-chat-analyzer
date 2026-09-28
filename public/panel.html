@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de control · Minimal Company</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png?v=2">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=2">
+<meta name="theme-color" content="#0b0d12">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --panel: #0f1218;
+    --surface: #141821;
+    --surface-2: #1a1f2a;
+    --surface-3: #212735;
+    --line: #232a37;
+    --line-soft: #1b212c;
+    --ink: #e7eaf0;
+    --ink-2: #b9c0cc;
+    --muted: #7f8898;
+    --brand: #204788;
+    --brand-hover: #2a56a1;
+    --brand-edge: #3563b3;
+    --brand-ink: #8fb0ea;
+    --brand-soft: rgba(32, 71, 136, .30);
+    --green: #3ecf8e;
+    --green-soft: rgba(62, 207, 142, .13);
+    --amber: #f2c14e;
+    --amber-soft: rgba(242, 193, 78, .15);
+    --red: #f07070;
+    --red-soft: rgba(240, 112, 112, .12);
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; opacity: .5; }
+  svg { width: 16px; height: 16px; flex: none; }
+  [hidden] { display: none !important; }
+  a { color: var(--brand-ink); }
+
+  /* botones y campos */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .btn:hover:not(:disabled) { border-color: #34405a; background: var(--surface-2); }
+  .btn.primary { background: var(--brand); border-color: var(--brand-edge); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--brand-hover); }
+  .btn.danger { color: var(--red); border-color: rgba(240,112,112,.35); background: var(--red-soft); }
+  .btn.ghost { border-color: transparent; background: none; color: var(--ink-2); }
+  .btn.small { padding: 4px 10px; font-size: 12px; }
+  .btn.dashed { border-style: dashed; background: none; color: var(--ink-2); width: 100%; padding: 10px; }
+  .spinner { width: 13px; height: 13px; border: 2px solid var(--surface-3); border-top-color: var(--brand-ink); border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
+  .btn.primary .spinner { border-color: rgba(255,255,255,.35); border-top-color: #fff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  label.f { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; }
+  .f-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .f-head a { font-size: 12.5px; font-weight: 500; text-decoration: none; }
+  .input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; font-size: 13.5px; outline: none; min-width: 0; }
+  .input:focus { border-color: var(--brand-edge); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .input.mono, .mono { font-family: var(--mono); }
+  .input-wrap { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; }
+  .input-wrap .input { padding-right: 120px; }
+  .input-wrap .inline { position: absolute; right: 8px; display: flex; gap: 2px; }
+  .input-wrap .inline button { border: 0; background: none; color: var(--muted); font-size: 12px; padding: 4px 6px; border-radius: 6px; }
+  .input-wrap .inline button:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+  .input-wrap .suffix { position: absolute; right: 12px; color: var(--muted); font-size: 12.5px; pointer-events: none; }
+  label.f > .input-wrap { flex: none; }
+  .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .hint.ok { color: var(--green); }
+  .hint.err { color: var(--red); }
+  select.input { appearance: none; padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+  textarea.input { resize: vertical; line-height: 1.5; }
+
+  /* interruptor */
+  .switch { position: relative; width: 36px; height: 20px; flex: none; display: inline-block; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--surface-3); transition: background .15s; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .switch input:checked + span { background: var(--brand-edge); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .switch input:focus-visible + span { box-shadow: 0 0 0 3px var(--brand-soft); }
+  .switch input:disabled { cursor: default; }
+  .switch input:disabled + span { opacity: .5; }
+
+  /* estado de una conexión */
+  .pill-s { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .pill-s::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill-s.ok { color: var(--green); background: var(--green-soft); }
+  .pill-s.invalid, .pill-s.error { color: var(--red); background: var(--red-soft); }
+  .pill-s.warn { color: var(--amber); background: var(--amber-soft); }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+  .tile { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 12px var(--mono); flex: none; background: var(--surface-3); color: var(--ink-2); }
+  .tile.lg { width: 44px; height: 44px; border-radius: 10px; font-size: 14px; }
+  .tile.sm { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
+  .tile.t-gemini { background: rgba(66,133,244,.16); color: #9bbcff; }
+  .tile.t-openai { background: var(--green-soft); color: var(--green); }
+  .tile.t-anthropic { background: rgba(217,119,87,.16); color: #e6a07f; }
+  .tile.t-deepseek { background: rgba(99,102,241,.18); color: #a9acf7; }
+  .tile.t-cw { background: var(--brand-soft); color: var(--brand-ink); }
+  .tile.t-wa { background: var(--green-soft); color: var(--green); }
+  /* logos oficiales de las integraciones */
+  .tile.brand { background: var(--surface-3); }
+  .tile.brand img { width: 62%; height: 62%; display: block; }
+
+  /* estructura */
+  .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); height: 100vh; }
+  .side { background: var(--panel); border-right: 1px solid var(--line-soft); display: flex; flex-direction: column; padding: 16px 12px 12px; gap: 2px; min-height: 0; overflow-y: auto; }
+  .side .logo { height: 26px; width: auto; max-width: 100%; align-self: flex-start; margin: 0 4px 14px; }
+  .back { display: flex; align-items: center; gap: 8px; color: var(--ink-2); text-decoration: none; font-size: 13.5px; padding: 7px 8px; border-radius: 8px; margin-bottom: 10px; }
+  .back:hover { background: var(--surface); color: var(--ink); }
+  .back svg { width: 14px; height: 14px; }
+  .group { font-size: 10.5px; letter-spacing: .1em; color: var(--muted); font-weight: 600; text-transform: uppercase; margin: 12px 8px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--ink-2); font-size: 13.5px; text-decoration: none; }
+  .nav-item:hover { background: var(--surface); color: var(--ink); }
+  .nav-item.on { background: var(--surface-2); color: var(--ink); }
+  .nav-item .dot { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .nav-item .dot.bad { background: var(--red); }
+  .side .note { margin-top: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .main { overflow-y: auto; min-height: 0; }
+  .content { width: min(1120px, 100%); margin: 0 auto; padding: 28px 32px 60px; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+  .head .kicker { font-size: 13px; color: var(--muted); }
+  .head h1 { margin: 2px 0 4px; font-size: 26px; font-weight: 700; letter-spacing: -.015em; }
+  .head p { margin: 0; color: var(--muted); font-size: 14px; max-width: 620px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+  .card-pad { padding: 18px 20px; }
+  .card h2 { margin: 0; font-size: 15px; font-weight: 700; }
+  .card .sub { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+  .sep { height: 1px; background: var(--line); }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .row-f { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .loading-page { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-2); padding: 80px 0; }
+  .loading-page .spinner { width: 22px; height: 22px; border-width: 3px; }
+
+  /* Modelos y API keys */
+  .ai-grid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .prov-list { display: flex; flex-direction: column; gap: 8px; }
+  .prov { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 11px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 11px; padding: 11px 12px; }
+  .prov:hover { background: var(--surface-2); }
+  .prov.on { border-color: var(--brand-edge); background: var(--surface-2); box-shadow: 0 0 0 1px rgba(53,99,179,.35); }
+  .prov .n { font-weight: 600; font-size: 13.5px; }
+  .prov .s { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .detail-head { display: flex; align-items: center; gap: 14px; padding: 18px 20px; }
+  .detail-head .t { font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .detail-head .s { font-size: 12.5px; color: var(--muted); }
+  .detail-head .right { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+  .key-row { display: flex; gap: 10px; align-items: stretch; }
+  .models { width: 100%; border-collapse: collapse; }
+  .models th { text-align: left; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 12px 20px 8px; }
+  .models td { border-top: 1px solid var(--line); padding: 11px 20px; vertical-align: middle; }
+  .models .m { font: 600 13.5px var(--mono); }
+  .models .d { font-size: 12px; color: var(--muted); }
+  .models .caps { display: flex; gap: 5px; flex-wrap: wrap; }
+  .usage { min-width: 100px; }
+  .usage .v { font: 12.5px var(--mono); }
+  .bar { height: 3px; background: var(--surface-3); border-radius: 3px; margin-top: 5px; overflow: hidden; width: 100px; }
+  .bar > i { display: block; height: 100%; background: var(--brand-ink); border-radius: 3px; }
+  .bar > i.warn { background: var(--amber); }
+  .bar > i.bad { background: var(--red); }
+  .add-model { display: flex; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
+  .chain { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .chain-item { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 10px 8px 14px; }
+  .chain-item .i { font: 12px var(--mono); color: var(--muted); width: 14px; }
+  .chain-item .m { font: 600 13px var(--mono); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chain-item .m.fam { font-family: inherit; }
+  .chain-item .m small { font: 400 11.5px system-ui, sans-serif; color: var(--muted); margin-left: 6px; }
+  .chain-item button { border: 0; background: none; color: var(--muted); width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; }
+  .chain-item button:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+  .chain-item button:disabled { opacity: .3; }
+  .chain-item.off { opacity: .55; }
+  .task { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .task:first-of-type { margin-top: 12px; }
+  .task .n { font-weight: 600; font-size: 13.5px; }
+  .task .s { font-size: 12px; color: var(--muted); }
+  .task select { width: 220px; font-family: var(--mono); font-size: 12.5px; }
+  .soon { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+
+  /* tablas simples */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th { text-align: left; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl .num { width: 120px; }
+  .tbl .muted { color: var(--muted); }
+  .who { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: var(--brand-soft); color: var(--brand-ink); flex: none; }
+  .crm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .crm { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--bg); }
+  .crm .n { font-weight: 600; }
+  .secret-box { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px dashed var(--brand-edge); border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+  .secret-box code { font: 600 15px var(--mono); letter-spacing: .03em; flex: 1; }
+  details summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
+  details pre { white-space: pre-wrap; font: 12px/1.55 var(--mono); color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; max-height: 360px; overflow: auto; }
+  .banner { display: flex; gap: 10px; align-items: flex-start; border: 1px solid rgba(242,193,78,.35); background: var(--amber-soft); color: #f5d27a; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 16px; }
+  ul.policy { margin: 10px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 13px; }
+  ul.policy li { margin: 4px 0; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; font-size: 13px; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+  .toast.err { color: var(--red); border-color: rgba(240,112,112,.35); }
+
+  /* pantallas angostas */
+  .menu-btn { display: none; }
+  @media (max-width: 1000px) {
+    .ai-grid, .grid2 { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 760px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .side { position: fixed; inset: 0 auto 0 0; width: min(290px, 86vw); z-index: 40; transform: translateX(-100%); transition: transform .2s; box-shadow: 20px 0 40px rgba(0,0,0,.5); }
+    .shell.show-side .side { transform: none; }
+    .menu-btn { display: inline-flex; }
+    .content { padding: 18px 16px 50px; }
+    .head { flex-direction: column; align-items: stretch; }
+    .row-f { grid-template-columns: minmax(0, 1fr); }
+    .models th:nth-child(2), .models td:nth-child(2) { display: none; }
+    .key-row { flex-direction: column; }
+    .task { flex-direction: column; align-items: stretch; }
+    .task select { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <aside class="side" id="side">
+    <img class="logo" src="/assets/logo-minimal.png" alt="Minimal Company">
+    <a class="back" href="/"><span data-icon="back"></span>Volver al analizador</a>
+    <div class="group">Inteligencia artificial</div>
+    <a class="nav-item" href="#/modelos" data-s="modelos">Modelos y API keys</a>
+    <a class="nav-item" href="#/limites" data-s="limites">Límites y cuotas</a>
+    <a class="nav-item" href="#/instrucciones" data-s="instrucciones">Instrucciones del analista</a>
+    <div class="group">Conexiones</div>
+    <a class="nav-item" href="#/crm" data-s="crm">Conexiones CRM<i class="dot" id="dotCrm" hidden></i></a>
+    <a class="nav-item" href="#/whatsapp" data-s="whatsapp">WhatsApp<i class="dot" id="dotWa" hidden></i></a>
+    <div class="group">Cuenta</div>
+    <a class="nav-item" href="#/usuarios" data-s="usuarios">Usuarios</a>
+    <a class="nav-item" href="#/seguridad" data-s="seguridad">Seguridad</a>
+    <div class="note">Las claves se guardan cifradas en el servidor y nunca se muestran completas después de guardarlas.</div>
+  </aside>
+  <main class="main" id="main"><div class="loading-page"><span class="spinner"></span>Cargando…</div></main>
+</div>
+<script>
+"use strict";
+
+// ---------- utilidades ----------
+const ICONS = {
+  back: '<path d="m15 18-6-6 6-6"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  down: '<path d="m6 9 6 6 6-6"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  alert: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+};
+function icon(name) {
+  const span = document.createElement("span");
+  span.style.display = "inline-flex";
+  span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] ?? ""}</svg>`;
+  return span;
+}
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else if (k === "value") node.value = v ?? "";
+    else if (k === "checked" || k === "disabled" || k === "selected") node[k] = !!v;
+    else if (v !== false && v != null) node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) if (c != null && c !== false) node.append(c instanceof Node ? c : String(c));
+  return node;
+}
+const TZ = "America/Bogota";
+const dateTime = (ms) => new Date(ms).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short", timeZone: TZ });
+function ago(ms) {
+  const min = Math.round((Date.now() - ms) / 60000);
+  if (min < 1) return "recién";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.round(h / 24)} d`;
+}
+const initials = (name) => (name || "?").split(/[\s._@-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+const clone = (v) => JSON.parse(JSON.stringify(v));
+
+function toast(text, error = false) {
+  const t = el("div", { class: "toast" + (error ? " err" : ""), role: "status" }, text);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(options.headers || {}) } });
+  if (res.status === 401) { location.replace("/login?next=panel" + location.hash); throw new Error("Su sesión venció."); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `Error ${res.status}`);
+  return body;
+}
+const send = (path, method, body) => api(path, { method, body: JSON.stringify(body ?? {}) });
+
+function copyText(text) {
+  navigator.clipboard?.writeText(text).then(() => toast("Copiado."), () => toast("No se pudo copiar.", true));
+}
+
+/** Botón que muestra un círculo de carga mientras corre la acción. */
+async function busy(button, fn) {
+  const label = [...button.childNodes];
+  button.disabled = true;
+  button.replaceChildren(el("span", { class: "spinner" }), ...label.filter((n) => n.nodeType === 3));
+  try { return await fn(); } finally { button.disabled = false; button.replaceChildren(...label); }
+}
+
+// ---------- estado ----------
+const S = {
+  data: null,        // estado del servidor (/api/panel/state)
+  section: "modelos",
+  provider: "gemini",
+  ai: null,          // borrador de Modelos y API keys
+  limits: null,      // borrador de Límites
+  instructions: "",  // borrador de Instrucciones
+  crm: null,         // borrador de Chatwoot
+  wa: null,          // borrador de Evolution
+  dirty: false,
+  showKey: false,
+  tests: {},         // resultado de "Probar conexión" por proveedor
+  catalogs: {},      // modelos disponibles por proveedor (para "Agregar modelo")
+  addingProvider: false,
+};
+
+const STATUS_LABEL = { ok: "Conectado", unset: "Sin configurar", invalid: "Clave inválida", error: "Error", off: "Desactivado" };
+const pill = (state, text) => el("span", { class: `pill-s ${state === "unset" || state === "off" ? "" : state}` }, text || STATUS_LABEL[state] || state);
+const TILE = { gemini: ["G", "t-gemini"], openai: ["OA", "t-openai"], anthropic: ["A", "t-anthropic"], deepseek: ["DS", "t-deepseek"], openrouter: ["OR", ""] };
+function tile(p, size = "") {
+  const [text, cls] = TILE[p.id] || [initials(p.name).slice(0, 2), ""];
+  return el("span", { class: `tile ${size} ${cls}` }, text);
+}
+
+function resetDrafts() {
+  const d = S.data;
+  S.ai = {
+    providers: d.providers.map((p) => ({ id: p.id, enabled: p.enabled, baseUrl: p.baseUrl, idleTimeoutSec: p.idleTimeoutSec, models: p.models.map((m) => ({ id: m.id, enabled: m.enabled, auto: m.auto })) })),
+    chain: d.chain.map((r) => ({ provider: r.provider, model: r.model })),
+    transcribe: d.transcribe ? { provider: d.transcribe.provider, model: d.transcribe.model } : null,
+    transcribeFallback: d.transcribeFallback ? { provider: d.transcribeFallback.provider, model: d.transcribeFallback.model } : null,
+    keys: {},
+  };
+  S.limits = clone(d.limits);
+  S.instructions = d.instructions.extra;
+  S.crm = { baseUrl: d.chatwoot.baseUrl, accountId: d.chatwoot.accountId, token: "" };
+  S.wa = { baseUrl: d.evolution.baseUrl, instance: d.evolution.instance, key: "" };
+  setDirty(false);
+}
+function setDirty(v) {
+  S.dirty = v;
+  const b = $("saveBtn");
+  if (b) b.disabled = !v;
+}
+addEventListener("beforeunload", (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+async function load() {
+  S.data = await api("/api/panel/state");
+  resetDrafts();
+  $("dotCrm").hidden = S.data.chatwoot.status.state === "unset";
+  $("dotCrm").classList.toggle("bad", S.data.chatwoot.status.state !== "ok");
+  $("dotWa").hidden = S.data.evolution.status.state === "unset";
+  $("dotWa").classList.toggle("bad", S.data.evolution.status.state !== "ok");
+}
+
+// ---------- navegación ----------
+const SECTIONS = {
+  modelos: { title: "Modelos y API keys", desc: "Conecte uno o varios proveedores. Si un modelo falla o está saturado, el analizador pasa al siguiente de la cadena de respaldo.", render: renderModels, save: saveAi },
+  limites: { title: "Límites y cuotas", desc: "Cuántos pedidos puede hacer el analizador a cada modelo y cuánto espera antes de pasar al siguiente.", render: renderLimits, save: saveLimits },
+  instrucciones: { title: "Instrucciones del analista", desc: "Contexto del negocio que el asistente tiene en cuenta en todas sus respuestas.", render: renderInstructions, save: saveInstructions },
+  crm: { title: "Conexiones CRM", desc: "De dónde salen los clientes y sus conversaciones.", render: renderCrm, save: saveCrm },
+  whatsapp: { title: "WhatsApp", desc: "Segunda fuente de mensajes: recupera lo que nunca llegó al CRM y las notas de voz.", render: renderWhatsApp, save: saveWhatsApp },
+  usuarios: { title: "Usuarios", desc: "Quién puede entrar al analizador. Los administradores además usan este panel.", render: renderUsers },
+  seguridad: { title: "Seguridad", desc: "Su contraseña, las sesiones abiertas y los ingresos recientes.", render: renderSecurity },
+};
+
+function go() {
+  const id = (location.hash.match(/^#\/(\w+)/) || [])[1];
+  const next = SECTIONS[id] ? id : "modelos";
+  if (S.dirty && next !== S.section && !leaveOk()) { history.replaceState(null, "", `#/${S.section}`); return; }
+  if (next !== S.section) resetDrafts();
+  S.section = next;
+  $("shell").classList.remove("show-side");
+  document.querySelectorAll(".nav-item[data-s]").forEach((a) => a.classList.toggle("on", a.dataset.s === next));
+  render();
+}
+let confirmLeave = false;
+function leaveOk() {
+  // Primer intento: aviso; segundo: se descartan los cambios.
+  if (confirmLeave) { confirmLeave = false; return true; }
+  confirmLeave = true;
+  toast("Hay cambios sin guardar. Guárdelos, o vuelva a hacer clic para descartarlos.", true);
+  setTimeout(() => (confirmLeave = false), 5000);
+  return false;
+}
+addEventListener("hashchange", go);
+
+function render() {
+  const sec = SECTIONS[S.section];
+  const saveBtn = sec.save ? el("button", { class: "btn primary", id: "saveBtn", disabled: !S.dirty, onclick: (e) => busy(e.currentTarget, save) }, "Guardar cambios") : null;
+  const head = el("div", { class: "head" },
+    el("div", {}, el("div", { class: "kicker" }, "Panel de control"), el("h1", {}, sec.title), el("p", {}, sec.desc)),
+    el("div", { style: "display:flex; gap:8px; align-items:center" },
+      el("button", { class: "btn menu-btn", title: "Menú", onclick: (e) => { e.stopPropagation(); $("shell").classList.toggle("show-side"); } }, icon("menu")),
+      saveBtn));
+  const body = el("div", { class: "stack", id: "body" });
+  $("main").replaceChildren(el("div", { class: "content" }, head, body));
+  sec.render(body);
+}
+async function save() {
+  try {
+    await SECTIONS[S.section].save();
+    toast("Cambios guardados.");
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+const markDirty = () => setDirty(true);
+
+// ---------- Modelos y API keys ----------
+const draftProvider = (id) => S.ai.providers.find((p) => p.id === id);
+const dataProvider = (id) => S.data.providers.find((p) => p.id === id);
+const refKey = (r) => (r.provider === "gemini" ? r.model : `${r.provider}:${r.model}`);
+const familyLabel = (m) => S.data.families.find((f) => f.id === m)?.label;
+const refLabel = (r) => familyLabel(r.model) || r.model;
+
+function statusOf(p) {
+  const d = draftProvider(p.id);
+  if (!d.enabled) return "off";
+  return p.status.state;
+}
+
+function renderModels(body) {
+  if (!S.data.canEncrypt) body.append(el("div", { class: "banner" }, icon("alert"), el("span", {}, "Falta SETTINGS_SECRET en el .env del servidor: se puede ver la configuración, pero no guardar claves nuevas.")));
+  const list = el("div", { class: "prov-list" },
+    ...S.data.providers.map((p) => el("button", { class: "prov" + (p.id === S.provider && !S.addingProvider ? " on" : ""), onclick: () => { S.provider = p.id; S.addingProvider = false; render(); } },
+      tile(p), el("span", { style: "min-width:0" }, el("div", { class: "n" }, p.name), el("div", { class: "s" }, p.subtitle)), pill(statusOf(p)))),
+    el("button", { class: "btn dashed", onclick: () => { S.addingProvider = true; render(); } }, icon("plus"), "Proveedor compatible con OpenAI"));
+  body.append(el("div", { class: "ai-grid" }, list, S.addingProvider ? newProviderCard() : providerCard()));
+  body.append(el("div", { class: "grid2" }, chainCard(), tasksCard()));
+}
+
+function providerCard() {
+  const p = dataProvider(S.provider) || S.data.providers[0];
+  const d = draftProvider(p.id);
+  const typed = S.ai.keys[p.id];
+  const test = S.tests[p.id];
+
+  const keyInput = el("input", { class: "input mono", type: S.showKey ? "text" : "password", autocomplete: "off", spellcheck: "false",
+    placeholder: p.key.set ? p.key.masked : "Pegue la clave aquí", value: typed || "" });
+  keyInput.addEventListener("input", () => { S.ai.keys[p.id] = keyInput.value.trim(); delete S.tests[p.id]; markDirty(); });
+  const keyHint = typed === ""
+    ? el("div", { class: "hint" }, "Se quitará la clave guardada en el panel al guardar.")
+    : p.key.source === "env" && !typed ? el("div", { class: "hint" }, "Tomada del archivo .env del servidor. Pegue otra para reemplazarla.")
+    : p.key.source === "panel" && !typed ? el("div", { class: "hint" }, "Guardada cifrada en el servidor. ",
+        el("a", { href: "#", onclick: (e) => { e.preventDefault(); S.ai.keys[p.id] = ""; markDirty(); render(); } }, "Quitar clave"))
+    : null;
+  const testHint = test ? el("div", { class: "hint " + (test.state === "ok" ? "ok" : "err") }, test.message) : null;
+
+  const baseInput = el("input", { class: "input mono", value: d.baseUrl, spellcheck: "false" });
+  baseInput.addEventListener("input", () => { d.baseUrl = baseInput.value.trim(); markDirty(); });
+  const idleInput = el("input", { class: "input mono", type: "number", min: 5, max: 600, value: d.idleTimeoutSec });
+  idleInput.addEventListener("input", () => { d.idleTimeoutSec = Number(idleInput.value); markDirty(); });
+
+  const toggle = el("label", { class: "switch", title: d.enabled ? "Activo" : "Desactivado" },
+    el("input", { type: "checkbox", checked: d.enabled, onchange: (e) => { d.enabled = e.target.checked; markDirty(); render(); } }), el("span"));
+
+  const usageOf = (key) => p.models.find((m) => m.key === key)?.usage;
+  const rows = d.models.map((m) => {
+    const key = refKey({ provider: p.id, model: m.id });
+    const u = usageOf(key) || { requests: 0, daily: 0 };
+    const pct = u.daily ? Math.min(100, (u.requests / u.daily) * 100) : 0;
+    const caps = p.models.find((x) => x.id === m.id)?.caps || (p.kind === "gemini" ? { text: true, audio: !/lite/.test(m.id) } : { text: true, audio: false });
+    return el("tr", {},
+      el("td", {}, el("div", { class: "m" }, m.id), el("div", { class: "d" }, modelRole(p.id, m.id, m.auto))),
+      el("td", {}, el("div", { class: "caps" }, caps.text ? el("span", { class: "tag" }, "Texto") : null, caps.audio ? el("span", { class: "tag" }, "Audio") : null)),
+      el("td", { class: "usage" },
+        el("div", { class: "v" }, u.daily ? `${u.requests} / ${u.daily}` : `${u.requests} · sin límite`),
+        el("div", { class: "bar" }, el("i", { class: u.exhausted || pct >= 100 ? "bad" : pct >= 75 ? "warn" : "", style: `width:${Math.max(pct, u.requests ? 3 : 0)}%` }))),
+      el("td", { style: "width:60px; text-align:right" },
+        el("label", { class: "switch", title: m.enabled ? "Activado" : "Desactivado" },
+          el("input", { type: "checkbox", checked: m.enabled, onchange: (e) => { m.enabled = e.target.checked; markDirty(); } }), el("span"))));
+  });
+
+  // Agregar un modelo del catálogo del proveedor.
+  const addInput = el("input", { class: "input mono", placeholder: "Nombre del modelo, p. ej. " + (p.kind === "gemini" ? "gemini-3.5-flash" : p.kind === "anthropic" ? "claude-sonnet-5" : "gpt-5-mini"), list: `catalog-${p.id}`, spellcheck: "false" });
+  const datalist = el("datalist", { id: `catalog-${p.id}` }, ...(S.catalogs[p.id] || []).map((m) => el("option", { value: m })));
+  addInput.addEventListener("focus", async () => {
+    if (S.catalogs[p.id] || !p.key.set) return;
+    try {
+      S.catalogs[p.id] = (await api(`/api/panel/providers/${p.id}/models`)).models;
+      datalist.replaceChildren(...S.catalogs[p.id].map((m) => el("option", { value: m })));
+    } catch { S.catalogs[p.id] = []; }
+  });
+  const addModel = () => {
+    const id = addInput.value.trim();
+    if (!id) return addInput.focus();
+    if (d.models.some((m) => m.id === id)) return toast("Ese modelo ya está en la lista.", true);
+    d.models.push({ id, enabled: true });
+    markDirty();
+    render();
+  };
+  addInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addModel(); } });
+
+  return el("section", { class: "card" },
+    el("div", { class: "detail-head" }, tile(p, "lg"),
+      el("div", { style: "min-width:0" }, el("div", { class: "t" }, p.name, pill(statusOf(p))), el("div", { class: "s" }, p.subtitle)),
+      el("div", { class: "right" }, p.custom ? el("button", { class: "btn small danger", onclick: (e) => busy(e.currentTarget, () => removeProvider(p)) }, "Quitar") : null, "Activo", toggle)),
+    el("div", { class: "sep" }),
+    el("div", { class: "card-pad stack" },
+      el("label", { class: "f" },
+        el("div", { class: "f-head" }, "API key", p.keyUrl ? el("a", { href: p.keyUrl, target: "_blank", rel: "noopener noreferrer" }, "Dónde obtenerla") : null),
+        el("div", { class: "key-row" },
+          el("div", { class: "input-wrap" }, keyInput, el("div", { class: "inline" },
+            el("button", { type: "button", title: "Muestra la clave que está escribiendo (la guardada no se puede ver)", onclick: (e) => {
+              S.showKey = !S.showKey;
+              keyInput.type = S.showKey ? "text" : "password";
+              e.currentTarget.textContent = S.showKey ? "Ocultar" : "Mostrar";
+            } }, S.showKey ? "Ocultar" : "Mostrar"),
+            el("button", { type: "button", disabled: !typed, title: typed ? "" : "La clave guardada no se puede ver ni copiar", onclick: () => copyText(keyInput.value) }, "Copiar"))),
+          el("button", { class: "btn", type: "button", onclick: (e) => busy(e.currentTarget, () => testProviderNow(p)) }, "Probar conexión")),
+        keyHint, testHint),
+      el("div", { class: "row-f" },
+        el("label", { class: "f" }, "URL base", baseInput),
+        el("label", { class: "f" }, "Tiempo máx. sin respuesta", el("div", { class: "input-wrap" }, idleInput, el("span", { class: "suffix" }, "seg"))))),
+    el("table", { class: "models" },
+      el("thead", {}, el("tr", {}, el("th", {}, "Modelo"), el("th", {}, "Capacidades"), el("th", {}, "Uso hoy"), el("th"))),
+      el("tbody", {}, rows.length ? rows : el("tr", {}, el("td", { colspan: 4, class: "d" }, "Todavía no hay modelos. Agregue uno abajo.")))),
+    el("div", { class: "add-model" }, addInput, datalist, el("button", { class: "btn", type: "button", onclick: addModel }, icon("plus"), "Agregar modelo")));
+}
+
+/** Para qué se usa un modelo: preguntas, respaldo n, notas de voz... */
+function modelRole(providerId, model, auto) {
+  const roles = [];
+  const key = refKey({ provider: providerId, model });
+  const i = S.ai.chain.findIndex((r) => refKey(r) === key);
+  if (i === 0) roles.push("Preguntas (principal)");
+  else if (i > 0) roles.push(`Respaldo ${i}`);
+  if (S.ai.transcribe && refKey(S.ai.transcribe) === key) roles.push("Notas de voz");
+  if (S.ai.transcribeFallback && refKey(S.ai.transcribeFallback) === key) roles.push("Respaldo de notas de voz");
+  if (auto) roles.push("Usado hoy por una familia");
+  return roles.join(" · ") || "Sin uso";
+}
+
+async function testProviderNow(p) {
+  const typed = S.ai.keys[p.id];
+  const d = draftProvider(p.id);
+  const r = await send(`/api/panel/providers/${p.id}/test`, "POST", { key: typed || undefined, baseUrl: d.baseUrl !== p.baseUrl ? d.baseUrl : undefined });
+  S.tests[p.id] = r;
+  if (r.state === "ok" && r.models?.length) S.catalogs[p.id] = r.models;
+  render();
+}
+
+function newProviderCard() {
+  const name = el("input", { class: "input", placeholder: "Nombre, p. ej. Groq" });
+  const url = el("input", { class: "input mono", placeholder: "https://api.ejemplo.com/v1", spellcheck: "false" });
+  const key = el("input", { class: "input mono", type: "password", placeholder: "API key", autocomplete: "off" });
+  const create = async () => {
+    const r = await send("/api/panel/providers", "POST", { name: name.value, baseUrl: url.value, key: key.value || undefined });
+    await load();
+    S.provider = r.id;
+    S.addingProvider = false;
+    render();
+    toast("Proveedor agregado. Agréguele modelos y súmelos a la cadena de respaldo.");
+  };
+  return el("section", { class: "card card-pad stack" },
+    el("div", {}, el("h2", {}, "Proveedor compatible con OpenAI"), el("p", { class: "sub" }, "Cualquier servicio con la API de chat de OpenAI: Groq, Together, Mistral, un servidor propio…")),
+    el("label", { class: "f" }, "Nombre", name),
+    el("label", { class: "f" }, "URL base", url, el("span", { class: "hint" }, "La dirección que termina antes de /chat/completions.")),
+    el("label", { class: "f" }, "API key", key),
+    el("div", { style: "display:flex; gap:8px; justify-content:flex-end" },
+      el("button", { class: "btn", onclick: () => { S.addingProvider = false; render(); } }, "Cancelar"),
+      el("button", { class: "btn primary", onclick: (e) => busy(e.currentTarget, () => create().catch((err) => toast(err.message, true))) }, "Agregar proveedor")));
+}
+
+async function removeProvider(p) {
+  await send(`/api/panel/providers/${p.id}`, "DELETE");
+  await load();
+  S.provider = "gemini";
+  render();
+  toast(`Se quitó ${p.name}.`);
+}
+
+/** Modelos que pueden entrar en la cadena (de texto, de proveedores activos) y las familias de Gemini. */
+function chainCandidates() {
+  const out = [];
+  for (const d of S.ai.providers) {
+    const p = dataProvider(d.id);
+    if (!d.enabled) continue;
+    for (const m of d.models) {
+      const caps = p.models.find((x) => x.id === m.id)?.caps;
+      if (m.enabled && (caps ? caps.text : true)) out.push({ provider: d.id, model: m.id, label: `${m.id} · ${p.name}` });
+    }
+    if (p.kind === "gemini") for (const f of S.data.families) out.push({ provider: d.id, model: f.id, label: f.label });
+  }
+  return out;
+}
+
+function chainCard() {
+  const chain = S.ai.chain;
+  const move = (i, delta) => { const [x] = chain.splice(i, 1); chain.splice(i + delta, 0, x); markDirty(); render(); };
+  const items = chain.map((r, i) => {
+    const p = dataProvider(r.provider);
+    const d = draftProvider(r.provider);
+    const off = !d?.enabled || d.models.some((m) => m.id === r.model && !m.enabled);
+    const fam = familyLabel(r.model);
+    return el("div", { class: "chain-item" + (off ? " off" : ""), title: off ? "Desactivado: se salta" : "" },
+      el("span", { class: "i" }, i + 1), p ? tile(p, "sm") : null,
+      el("span", { class: "m" + (fam ? " fam" : "") }, fam || r.model, fam ? el("small", {}, "automático · el más nuevo primero") : null),
+      el("button", { title: "Subir", disabled: i === 0, onclick: () => move(i, -1) }, icon("up")),
+      el("button", { title: "Bajar", disabled: i === chain.length - 1, onclick: () => move(i, 1) }, icon("down")),
+      el("button", { title: "Quitar de la cadena", disabled: chain.length === 1, onclick: () => { chain.splice(i, 1); markDirty(); render(); } }, icon("x")));
+  });
+  const options = chainCandidates().filter((c) => !chain.some((r) => refKey(r) === refKey(c)));
+  const add = el("select", { class: "input", onchange: (e) => {
+    const c = options[Number(e.target.value)];
+    if (!c) return;
+    chain.push({ provider: c.provider, model: c.model });
+    markDirty();
+    render();
+  } }, el("option", { value: "" }, "Agregar a la cadena…"), ...options.map((c, i) => el("option", { value: i }, c.label)));
+  return el("section", { class: "card card-pad" },
+    el("h2", {}, "Cadena de respaldo"), el("p", { class: "sub" }, "Orden en que se prueban los modelos cuando uno falla."),
+    el("div", { class: "chain" }, ...items),
+    el("div", { style: "margin-top:12px" }, add));
+}
+
+function tasksCard() {
+  const qaOptions = chainCandidates();
+  const first = S.ai.chain[0];
+  const qa = el("select", { class: "input", onchange: (e) => {
+    const c = qaOptions[Number(e.target.value)];
+    const chain = S.ai.chain.filter((r) => refKey(r) !== refKey(c));
+    S.ai.chain = [{ provider: c.provider, model: c.model }, ...chain];
+    markDirty();
+    render();
+  } }, ...qaOptions.map((c, i) => el("option", { value: i, selected: first && refKey(first) === refKey(c) }, c.label)));
+
+  // Notas de voz: solo modelos de Gemini que aceptan audio.
+  const gemini = draftProvider("gemini");
+  const audioModels = (gemini?.models || []).filter((m) => m.enabled && (dataProvider("gemini").models.find((x) => x.id === m.id)?.caps?.audio ?? !/lite/.test(m.id)));
+  const isLive = (m) => /-live\b|live-/i.test(m);
+  const tr = el("select", { class: "input", onchange: (e) => {
+    S.ai.transcribe = { provider: "gemini", model: e.target.value };
+    if (isLive(e.target.value)) S.ai.transcribeFallback = null;
+    markDirty();
+    render();
+  } }, ...audioModels.map((m) => el("option", { value: m.id, selected: S.ai.transcribe?.model === m.id }, m.id + (isLive(m.id) ? " (Live)" : ""))));
+  const lives = audioModels.filter((m) => isLive(m.id));
+  const fallback = S.ai.transcribe && !isLive(S.ai.transcribe.model)
+    ? el("div", { class: "task", style: "border-top:0; padding-top:0" },
+        el("div", {}, el("div", { class: "s" }, "Respaldo si el principal falla o se queda sin cuota")),
+        el("select", { class: "input", onchange: (e) => { S.ai.transcribeFallback = e.target.value ? { provider: "gemini", model: e.target.value } : null; markDirty(); } },
+          el("option", { value: "" }, "Sin respaldo"), ...lives.map((m) => el("option", { value: m.id, selected: S.ai.transcribeFallback?.model === m.id }, `${m.id} (Live)`))))
+    : null;
+
+  return el("section", { class: "card card-pad" },
+    el("h2", {}, "Modelo por tarea"), el("p", { class: "sub" }, "Qué modelo usar primero en cada parte del analizador."),
+    el("div", { class: "task" }, el("div", {}, el("div", { class: "n" }, "Preguntas sobre el cliente"), el("div", { class: "s" }, "Chat del analizador")), qa),
+    el("div", { class: "task" }, el("div", {}, el("div", { class: "n" }, "Transcripción de notas de voz"), el("div", { class: "s" }, "Solo modelos con audio")), tr),
+    fallback,
+    el("div", { class: "task" }, el("div", {}, el("div", { class: "n" }, "Resumen y línea de tiempo"), el("div", { class: "s" }, "Al actualizar el historial")), el("span", { class: "soon" }, "Próximamente")));
+}
+
+async function saveAi() {
+  const payload = {
+    providers: S.ai.providers.map((p) => ({ ...p, models: p.models.filter((m) => !m.auto || !m.enabled).map((m) => ({ id: m.id, enabled: m.enabled })) })),
+    chain: S.ai.chain,
+    transcribe: S.ai.transcribe,
+    transcribeFallback: S.ai.transcribeFallback,
+    keys: Object.fromEntries(Object.entries(S.ai.keys).map(([id, v]) => [id, v === "" ? null : v]).filter(([, v]) => v !== undefined)),
+  };
+  S.data = await send("/api/panel/ai", "PUT", payload);
+  S.tests = {};
+  resetDrafts();
+  render();
+}
+
+// ---------- Límites y cuotas ----------
+function numInput(obj, key, { min = 0, max = 100000, suffix = "" } = {}) {
+  const input = el("input", { class: "input mono", type: "number", min, max, value: obj[key] });
+  input.addEventListener("input", () => { obj[key] = Number(input.value); markDirty(); });
+  return suffix ? el("div", { class: "input-wrap" }, input, el("span", { class: "suffix" }, suffix)) : input;
+}
+
+function renderLimits(body) {
+  const L = S.limits;
+  // Modelos con límite propio, más los activos de cada proveedor (para poder ponerles uno).
+  const keys = new Set(Object.keys(L.models));
+  for (const p of S.data.providers) if (p.enabled) for (const m of p.models) if (m.enabled && !m.auto) keys.add(m.key);
+  const usage = (key) => S.data.limitUsage[key] || S.data.providers.flatMap((p) => p.models).find((m) => m.key === key)?.usage || { requests: 0 };
+  const rows = [...keys].sort().map((key) => {
+    L.models[key] ??= { daily: 0, rpm: 0 };
+    const u = usage(key);
+    return el("tr", {},
+      el("td", {}, el("span", { class: "mono" }, key)),
+      el("td", { class: "num" }, numInput(L.models[key], "daily", { max: 1000000 })),
+      el("td", { class: "num" }, numInput(L.models[key], "rpm", { max: 100000 })),
+      el("td", { class: "muted mono" }, `${u.requests} hoy`));
+  });
+  body.append(
+    el("section", { class: "card" },
+      el("div", { class: "card-pad" }, el("h2", {}, "Límites por modelo"), el("p", { class: "sub" }, `0 = sin límite. La cuota diaria de Gemini se renueva a las ${S.data.resetsAt} (hora de Colombia).`)),
+      el("table", { class: "tbl" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Modelo"), el("th", {}, "Pedidos por día"), el("th", {}, "Por minuto"), el("th", {}, "Uso"))),
+        el("tbody", {}, ...rows,
+          el("tr", {}, el("td", {}, "Otros modelos de Gemini ", el("span", { class: "hint" }, "(los que entran por familia)")),
+            el("td", { class: "num" }, numInput(L.geminiDefault, "daily", { max: 1000000 })), el("td", { class: "num" }, numInput(L.geminiDefault, "rpm")), el("td"))))),
+    el("div", { class: "grid2" },
+      el("section", { class: "card card-pad stack" },
+        el("div", {}, el("h2", {}, "Preguntas"), el("p", { class: "sub" }, "Cuánto se espera a cada modelo antes de pasar al siguiente.")),
+        el("div", { class: "row-f" },
+          el("label", { class: "f" }, "Primera señal de vida", numInput(L, "firstTokenTimeoutSec", { min: 5, max: 600, suffix: "seg" })),
+          el("label", { class: "f" }, "Espera total por pregunta", numInput(L, "totalTimeoutSec", { min: 30, max: 1800, suffix: "seg" }))),
+        el("div", { class: "row-f" },
+          el("label", { class: "f" }, "Pausa de un modelo que falló", numInput(L, "cooldownMin", { max: 1440, suffix: "min" })),
+          el("label", { class: "f" }, "Reserva para preguntas", numInput(L, "qaReserve", { max: 10000 }), el("span", { class: "hint" }, "Pedidos diarios que las notas de voz dejan libres si comparten modelo.")))),
+      el("section", { class: "card card-pad stack" },
+        el("div", {}, el("h2", {}, "Notas de voz"), el("p", { class: "sub" }, "Varias notas por pedido, y cuántos pedidos a la vez.")),
+        el("div", { class: "row-f" },
+          el("label", { class: "f" }, "Notas por lote", numInput(L, "batchSize", { min: 1, max: 200 })),
+          el("label", { class: "f" }, "Tamaño máximo por lote", numInput(L, "batchMaxMb", { min: 1, max: 18, suffix: "MB" }))),
+        el("div", { class: "row-f" },
+          el("label", { class: "f" }, "Lotes en paralelo", numInput(L, "transcribeConcurrency", { min: 1, max: 20 })),
+          el("label", { class: "f" }, "Sesiones Live en paralelo", numInput(L, "liveConcurrency", { min: 1, max: 20 }))),
+        el("label", { class: "f" }, "Sesiones Live nuevas por minuto", numInput(L, "liveRpm", { min: 1, max: 600 })))));
+}
+
+async function saveLimits() {
+  // Los modelos sin límite que se agregaron solo para mostrarlos no se guardan.
+  const models = Object.fromEntries(Object.entries(S.limits.models).filter(([k, v]) => v.daily || v.rpm || k in S.data.limits.models));
+  S.data = await send("/api/panel/limits", "PUT", { ...S.limits, models });
+  resetDrafts();
+  render();
+}
+
+// ---------- Instrucciones del analista ----------
+function renderInstructions(body) {
+  const count = el("span", { class: "hint" }, `${S.instructions.length.toLocaleString("es-CO")} / 8.000`);
+  const area = el("textarea", { class: "input", rows: 12, maxlength: 8000, value: S.instructions,
+    placeholder: "Ejemplo:\nSomos Minimal Company, agencia de marketing y desarrollo en Cúcuta. Cobramos por hora (50.000 COP) y por proyecto.\nCuando evalúe un cobro, tenga en cuenta lo acordado por escrito en el chat.\nLos pagos se reciben por Bancolombia y Nequi." });
+  area.addEventListener("input", () => { S.instructions = area.value; count.textContent = `${area.value.length.toLocaleString("es-CO")} / 8.000`; markDirty(); });
+  body.append(
+    el("section", { class: "card card-pad stack" },
+      el("div", {}, el("h2", {}, "Contexto e instrucciones del negocio"), el("p", { class: "sub" }, "Se suman a las instrucciones base en cada pregunta. Tienen prioridad sobre el estilo, nunca sobre lo que dice el chat.")),
+      area, count),
+    el("section", { class: "card card-pad" },
+      el("details", {}, el("summary", {}, "Ver las instrucciones base (fijas)"), el("pre", {}, S.data.instructions.base))));
+}
+async function saveInstructions() {
+  await send("/api/panel/instructions", "PUT", { extra: S.instructions });
+  S.data.instructions.extra = S.instructions.trim();
+  resetDrafts();
+  render();
+}
+
+// ---------- Conexiones: Chatwoot y Evolution ----------
+function connectionField(label, obj, key, { mono = true, placeholder = "", type = "text", hint = null } = {}) {
+  const input = el("input", { class: "input" + (mono ? " mono" : ""), type, value: obj[key], placeholder, autocomplete: "off", spellcheck: "false" });
+  input.addEventListener("input", () => { obj[key] = input.value.trim(); markDirty(); });
+  return el("label", { class: "f" }, label, input, hint ? el("span", { class: "hint" }, hint) : null);
+}
+
+/** Logo oficial de una integración (public/assets/brands/<id>.svg). */
+const brandTile = (id, name, size = "") => el("span", { class: `tile brand ${size}`, title: name }, el("img", { src: `/assets/brands/${id}.svg`, alt: name }));
+
+function statusLine(status) {
+  if (!status) return null;
+  return el("div", { class: "hint " + (status.state === "ok" ? "ok" : status.state === "unset" ? "" : "err") }, status.message + (status.profile ? ` · ${status.profile}` : ""));
+}
+
+function renderCrm(body) {
+  const c = S.data.chatwoot;
+  const result = el("div");
+  const test = async () => {
+    const r = await send("/api/panel/chatwoot/test", "POST", { baseUrl: S.crm.baseUrl, accountId: S.crm.accountId, token: S.crm.token || undefined });
+    result.replaceChildren(statusLine(r));
+  };
+  body.append(
+    el("section", { class: "card" },
+      el("div", { class: "detail-head" }, brandTile("chatwoot", "Chatwoot", "lg"),
+        el("div", {}, el("div", { class: "t" }, "Chatwoot", pill(c.status.state)), el("div", { class: "s" }, c.status.message))),
+      el("div", { class: "sep" }),
+      el("div", { class: "card-pad stack" },
+        el("div", { class: "row-f" },
+          connectionField("URL de Chatwoot", S.crm, "baseUrl", { hint: "Dentro del servidor: http://chatwoot-rails:3000" }),
+          connectionField("ID de cuenta", S.crm, "accountId")),
+        connectionField("Token de acceso", S.crm, "token", { type: "password", placeholder: c.token.set ? c.token.masked : "Token de un administrador (Perfil › Token de acceso)",
+          hint: c.token.source === "env" ? "Tomado del archivo .env del servidor. Pegue otro para reemplazarlo." : c.token.source === "panel" ? "Guardado cifrado en el servidor." : "Use el token de un administrador: un agente solo ve sus bandejas." }),
+        el("div", { style: "display:flex; gap:10px; align-items:center" }, el("button", { class: "btn", onclick: (e) => busy(e.currentTarget, () => test().catch((err) => toast(err.message, true))) }, "Probar conexión"), result))),
+    el("section", { class: "card card-pad" },
+      el("h2", {}, "Otros CRM"), el("p", { class: "sub" }, "Para analizar conversaciones que viven en otro sistema."),
+      el("div", { class: "crm-grid", style: "margin-top:14px" },
+        ...[["kommo", "Kommo"], ["hubspot", "HubSpot"], ["highlevel", "GoHighLevel"], ["pipedrive", "Pipedrive"]].map(([id, n]) =>
+          el("div", { class: "crm" }, brandTile(id, n), el("div", { style: "flex:1" }, el("div", { class: "n" }, n)), el("span", { class: "soon" }, "Próximamente"))))));
+}
+async function saveCrm() {
+  const r = await send("/api/panel/chatwoot", "PUT", { baseUrl: S.crm.baseUrl, accountId: S.crm.accountId, token: S.crm.token || undefined });
+  await load();
+  S.data.chatwoot.status = r.status;
+  render();
+}
+
+function renderWhatsApp(body) {
+  const e = S.data.evolution;
+  const result = el("div");
+  const test = async () => {
+    const r = await send("/api/panel/whatsapp/test", "POST", { baseUrl: S.wa.baseUrl, instance: S.wa.instance, key: S.wa.key || undefined });
+    result.replaceChildren(statusLine(r));
+  };
+  const exports = S.data.exports.map((x) => el("tr", {},
+    el("td", {}, el("a", { href: `/#/c/${x.contactId}` }, x.name || `Cliente ${x.contactId}`)),
+    el("td", { class: "muted" }, `${x.audios} notas de voz`),
+    el("td", { class: "muted" }, x.at ? dateTime(x.at) : "")));
+  body.append(
+    el("section", { class: "card" },
+      el("div", { class: "detail-head" }, brandTile("whatsapp", "WhatsApp", "lg"),
+        el("div", {}, el("div", { class: "t" }, "Evolution API", pill(e.status.state, e.status.state === "ok" ? "Conectado" : undefined)),
+          el("div", { class: "s" }, e.status.message + (e.status.profile ? ` · ${e.status.profile}` : "")))),
+      el("div", { class: "sep" }),
+      el("div", { class: "card-pad stack" },
+        el("div", { class: "row-f" },
+          connectionField("URL de Evolution", S.wa, "baseUrl", { hint: "Dentro del servidor: http://evolution-api:8080. Vacío = no usar WhatsApp como segunda fuente." }),
+          connectionField("Instancia", S.wa, "instance")),
+        connectionField("API key", S.wa, "key", { type: "password", placeholder: e.key.set ? e.key.masked : "API key de Evolution",
+          hint: e.key.source === "env" ? "Tomada del archivo .env del servidor. Pegue otra para reemplazarla." : e.key.source === "panel" ? "Guardada cifrada en el servidor." : null }),
+        el("div", { style: "display:flex; gap:10px; align-items:center" }, el("button", { class: "btn", onclick: (ev) => busy(ev.currentTarget, () => test().catch((err) => toast(err.message, true))) }, "Probar conexión"), result))),
+    el("section", { class: "card" },
+      el("div", { class: "card-pad" }, el("h2", {}, "Exportaciones del teléfono"),
+        el("p", { class: "sub" }, "Chats exportados desde WhatsApp (con sus notas de voz). Se importan desde la ficha del cliente: ⋯ › Importar chat de WhatsApp.")),
+      exports.length
+        ? el("table", { class: "tbl" }, el("tbody", {}, ...exports))
+        : el("div", { class: "card-pad hint", style: "padding-top:0" }, "Todavía no se importó ninguno.")));
+}
+async function saveWhatsApp() {
+  const r = await send("/api/panel/whatsapp", "PUT", { baseUrl: S.wa.baseUrl, instance: S.wa.instance, key: S.wa.key || undefined });
+  await load();
+  S.data.evolution.status = r.status;
+  render();
+}
+
+// ---------- Usuarios ----------
+async function renderUsers(body) {
+  body.append(el("div", { class: "loading-page" }, el("span", { class: "spinner" })));
+  let users;
+  try { users = await api("/api/panel/users"); } catch (e) { body.replaceChildren(el("div", { class: "banner" }, e.message)); return; }
+  const me = S.me;
+  const secretSlot = el("div");
+  const showSecret = (title, password) => secretSlot.replaceChildren(el("section", { class: "card card-pad" },
+    el("h2", {}, title), el("p", { class: "sub" }, "Se muestra una sola vez. Al ingresar se le pedirá cambiarla."),
+    el("div", { class: "secret-box" }, el("code", {}, password), el("button", { class: "btn small", onclick: () => copyText(password) }, icon("copy"), "Copiar"))));
+
+  const rows = users.map((u) => {
+    const role = el("select", { class: "input", style: "width:150px", disabled: u.username === me.username, onchange: async (e) => {
+      try { await send(`/api/panel/users/${encodeURIComponent(u.username)}`, "PUT", { role: e.target.value }); toast("Rol actualizado."); }
+      catch (err) { toast(err.message, true); render(); }
+    } }, el("option", { value: "admin", selected: u.role === "admin" }, "Administrador"), el("option", { value: "analista", selected: u.role === "analista" }, "Analista"));
+    let armed = false;
+    const del = el("button", { class: "btn small ghost", disabled: u.username === me.username, onclick: async (e) => {
+      if (!armed) { armed = true; e.currentTarget.textContent = "¿Seguro? Eliminar"; e.currentTarget.classList.add("danger"); return; }
+      try { await send(`/api/panel/users/${encodeURIComponent(u.username)}`, "DELETE"); toast(`Se borró a ${u.username}.`); render(); }
+      catch (err) { toast(err.message, true); }
+    } }, "Eliminar");
+    const reset = el("button", { class: "btn small", onclick: (e) => busy(e.currentTarget, async () => {
+      try { const r = await send(`/api/panel/users/${encodeURIComponent(u.username)}/reset`, "POST"); showSecret(`Nueva contraseña temporal de ${u.username}`, r.password); }
+      catch (err) { toast(err.message, true); }
+    }) }, "Restablecer contraseña");
+    return el("tr", {},
+      el("td", {}, el("div", { class: "who" }, el("span", { class: "avatar" }, initials(u.name)), el("div", {}, el("div", {}, el("b", {}, u.name), u.username === me.username ? el("span", { class: "hint" }, " (usted)") : null), el("div", { class: "hint mono" }, u.username)))),
+      el("td", {}, role),
+      el("td", { class: "muted" }, u.lastLoginAt ? ago(u.lastLoginAt) : "Nunca"),
+      el("td", {}, u.mustChangePassword ? pill("warn", "Debe cambiar la contraseña") : pill("ok", "Activo")),
+      el("td", { style: "text-align:right; white-space:nowrap" }, reset, " ", del));
+  });
+
+  const username = el("input", { class: "input mono", placeholder: "maria", autocomplete: "off", spellcheck: "false" });
+  const name = el("input", { class: "input", placeholder: "María Gómez" });
+  const role = el("select", { class: "input" }, el("option", { value: "analista" }, "Analista"), el("option", { value: "admin" }, "Administrador"));
+  const add = async () => {
+    try {
+      const r = await send("/api/panel/users", "POST", { username: username.value, name: name.value, role: role.value });
+      // La contraseña temporal se muestra después de recargar la lista (que ya incluye al usuario nuevo).
+      S.pendingSecret = { title: `Contraseña temporal de ${username.value.trim().toLowerCase()}`, password: r.password };
+      render();
+    } catch (err) { toast(err.message, true); }
+  };
+  if (S.pendingSecret) {
+    showSecret(S.pendingSecret.title, S.pendingSecret.password);
+    S.pendingSecret = null;
+  }
+  body.replaceChildren(
+    el("section", { class: "card" },
+      el("table", { class: "tbl" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Usuario"), el("th", {}, "Rol"), el("th", {}, "Último ingreso"), el("th", {}, "Estado"), el("th"))),
+        el("tbody", {}, ...rows))),
+    secretSlot,
+    el("section", { class: "card card-pad stack" },
+      el("div", {}, el("h2", {}, "Agregar usuario"), el("p", { class: "sub" }, "Se crea con una contraseña temporal que usted le comparte; al ingresar, la cambia. Los analistas no ven este panel.")),
+      el("div", { class: "row-f" }, el("label", { class: "f" }, "Usuario", username), el("label", { class: "f" }, "Nombre", name)),
+      el("label", { class: "f", style: "max-width:260px" }, "Rol", role),
+      el("div", {}, el("button", { class: "btn primary", onclick: (e) => busy(e.currentTarget, add) }, icon("plus"), "Crear usuario"))));
+}
+
+// ---------- Seguridad ----------
+function device(ua) {
+  const b = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : /curl|node|undici/i.test(ua) ? "Programa" : "Navegador";
+  const os = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "";
+  return os ? `${b} · ${os}` : b;
+}
+
+async function renderSecurity(body) {
+  body.append(el("div", { class: "loading-page" }, el("span", { class: "spinner" })));
+  let sec;
+  try { sec = await api("/api/panel/security"); } catch (e) { body.replaceChildren(el("div", { class: "banner" }, e.message)); return; }
+
+  const cur = el("input", { class: "input", type: "password", autocomplete: "current-password" });
+  const nw = el("input", { class: "input", type: "password", autocomplete: "new-password", minlength: 10 });
+  const cf = el("input", { class: "input", type: "password", autocomplete: "new-password", minlength: 10 });
+  const pwStatus = el("div", { class: "hint" });
+  const changePw = async () => {
+    pwStatus.className = "hint err";
+    if (!cur.value) return (pwStatus.textContent = "Escriba la contraseña actual.");
+    if (nw.value.length < 10) return (pwStatus.textContent = "La contraseña nueva debe tener al menos 10 caracteres.");
+    if (nw.value !== cf.value) return (pwStatus.textContent = "Las dos contraseñas nuevas no coinciden.");
+    try {
+      await send("/api/password", "POST", { current: cur.value, next: nw.value });
+      cur.value = nw.value = cf.value = "";
+      pwStatus.className = "hint ok";
+      pwStatus.textContent = "Contraseña actualizada. Las demás sesiones con su usuario se cerraron.";
+    } catch (err) { pwStatus.textContent = err.message; }
+  };
+
+  const sessions = sec.sessions.map((s) => el("tr", {},
+    el("td", {}, el("b", {}, s.username), s.current ? el("span", { class: "hint" }, " · esta sesión") : null),
+    el("td", {}, device(s.userAgent)),
+    el("td", { class: "muted mono" }, s.ip),
+    el("td", { class: "muted" }, ago(s.lastSeenAt)),
+    el("td", { class: "muted" }, dateTime(s.expiresAt)),
+    el("td", { style: "text-align:right" }, s.current ? null : el("button", { class: "btn small", onclick: (e) => busy(e.currentTarget, async () => {
+      await send(`/api/panel/sessions/${s.handle}`, "DELETE");
+      toast("Sesión cerrada.");
+      render();
+    }) }, "Cerrar"))));
+  const events = sec.events.map((ev) => el("tr", {},
+    el("td", { class: "muted" }, dateTime(ev.at)),
+    el("td", {}, ev.username || "—"),
+    el("td", { class: "muted mono" }, ev.ip),
+    el("td", { class: "muted" }, ev.userAgent ? device(ev.userAgent) : ""),
+    el("td", {}, ev.result === "ok" ? pill("ok", "Correcto") : ev.result === "blocked" ? pill("warn", "Bloqueado") : pill("error", "Fallido"))));
+
+  body.replaceChildren(
+    el("div", { class: "grid2" },
+      el("section", { class: "card card-pad stack" },
+        el("div", {}, el("h2", {}, "Su contraseña"), el("p", { class: "sub" }, "Al cambiarla se cierran sus demás sesiones.")),
+        el("input", { type: "text", autocomplete: "username", value: S.me.username, hidden: true }),
+        el("label", { class: "f" }, "Contraseña actual", cur),
+        el("div", { class: "row-f" }, el("label", { class: "f" }, "Contraseña nueva", nw), el("label", { class: "f" }, "Repítala", cf)),
+        pwStatus,
+        el("div", {}, el("button", { class: "btn primary", onclick: (e) => busy(e.currentTarget, changePw) }, "Cambiar contraseña"))),
+      el("section", { class: "card card-pad" },
+        el("h2", {}, "Protección"),
+        el("ul", { class: "policy" },
+          el("li", {}, "Las sesiones vencen a los 7 días sin uso y duran como máximo 30."),
+          el("li", {}, "5 intentos fallidos desde una misma IP (o 10 contra un usuario) bloquean el ingreso 15 minutos."),
+          el("li", {}, "Contraseñas de al menos 10 caracteres, guardadas con scrypt."),
+          el("li", {}, "Claves de API y tokens cifrados (AES-256-GCM); nunca se muestran completos."),
+          el("li", {}, "Por internet solo HTTPS; los cambios deben venir de esta misma página.")))),
+    el("section", { class: "card" },
+      el("div", { class: "card-pad", style: "display:flex; justify-content:space-between; align-items:flex-start; gap:12px" },
+        el("div", {}, el("h2", {}, "Sesiones abiertas"), el("p", { class: "sub" }, "Todos los usuarios. Cerrar una sesión obliga a volver a ingresar en ese dispositivo.")),
+        sec.sessions.length > 1 ? el("button", { class: "btn small", onclick: (e) => busy(e.currentTarget, async () => { await send("/api/panel/sessions/close-others", "POST"); toast("Se cerraron las demás sesiones."); render(); }) }, "Cerrar las demás") : null),
+      el("table", { class: "tbl" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Usuario"), el("th", {}, "Dispositivo"), el("th", {}, "IP"), el("th", {}, "Última actividad"), el("th", {}, "Vence"), el("th"))),
+        el("tbody", {}, ...sessions))),
+    el("section", { class: "card" },
+      el("div", { class: "card-pad" }, el("h2", {}, "Ingresos recientes"), el("p", { class: "sub" }, "Los últimos intentos de ingreso, correctos y fallidos.")),
+      events.length
+        ? el("table", { class: "tbl" }, el("thead", {}, el("tr", {}, el("th", {}, "Fecha"), el("th", {}, "Usuario"), el("th", {}, "IP"), el("th", {}, "Dispositivo"), el("th", {}, "Resultado"))), el("tbody", {}, ...events))
+        : el("div", { class: "card-pad hint", style: "padding-top:0" }, "Todavía no hay registros.")));
+}
+
+// ---------- arranque ----------
+document.querySelectorAll("[data-icon]").forEach((n) => n.replaceWith(icon(n.dataset.icon)));
+document.addEventListener("click", (e) => {
+  const shell = $("shell");
+  if (shell.classList.contains("show-side") && !$("side").contains(e.target)) shell.classList.remove("show-side");
+});
+
+(async () => {
+  try {
+    S.me = await api("/api/me");
+    if (S.me.role !== "admin") return location.replace("/");
+    await load();
+    go();
+  } catch (e) {
+    $("main").replaceChildren(el("div", { class: "content" }, el("div", { class: "banner" }, icon("alert"), el("span", {}, e.message))));
+  }
+})();
+</script>
+</body>
+</html>

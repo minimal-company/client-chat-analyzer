@@ -1,0 +1,2198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analizador de chats · Minimal Company</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png?v=2">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=2">
+<meta name="theme-color" content="#0b0d12">
+<style>
+  /* Paleta de la vista 1a (oscura) con los colores oficiales de Minimal Company. */
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d12;
+    --panel: #0f1218;
+    --surface: #141821;
+    --surface-2: #1a1f2a;
+    --surface-3: #212735;
+    --line: #232a37;
+    --line-soft: #1b212c;
+    --ink: #e7eaf0;
+    --ink-2: #b9c0cc;
+    --muted: #7f8898;
+    --brand: #204788;          /* azul oficial del logo */
+    --brand-hover: #2a56a1;
+    --brand-edge: #3563b3;
+    --brand-ink: #8fb0ea;      /* el mismo azul, aclarado para texto sobre fondo oscuro */
+    --brand-soft: rgba(32, 71, 136, .30);
+    --green: #3ecf8e;
+    --green-soft: rgba(62, 207, 142, .13);
+    --amber: #f2c14e;
+    --amber-soft: rgba(242, 193, 78, .15);
+    --red: #f07070;
+    --red-soft: rgba(240, 112, 112, .12);
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; opacity: .5; }
+  svg { width: 16px; height: 16px; flex: none; }
+  .mono { font-family: var(--mono); }
+  [hidden] { display: none !important; }
+
+  /* ---------- botones ---------- */
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .btn:hover:not(:disabled) { border-color: #34405a; background: var(--surface-2); }
+  .btn.primary { background: var(--brand); border-color: var(--brand-edge); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--brand-hover); border-color: var(--brand-edge); }
+  .btn.ghost { border-color: transparent; background: none; color: var(--ink-2); }
+  .btn.ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+  .btn.block { width: 100%; justify-content: center; padding: 8px 12px; }
+  .btn.small { padding: 3px 9px; font-size: 12px; }
+  .icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; color: var(--ink-2); flex: none; }
+  .icon-btn:hover { color: var(--ink); background: var(--surface-2); }
+  .icon-btn.bare { border-color: transparent; background: none; }
+  .split { display: inline-flex; }
+  .split > .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .split > .btn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; padding: 6px 7px; }
+  .spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- menú desplegable ---------- */
+  .menu { position: fixed; z-index: 50; min-width: 220px; max-width: 440px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 5px; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+  .menu button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-radius: 7px; padding: 7px 9px; font-size: 13px; color: var(--ink-2); }
+  .menu button:hover, .menu button.on { background: var(--surface-2); color: var(--ink); }
+  .menu .sep { height: 1px; background: var(--line); margin: 5px 2px; }
+  .menu .meta { margin-left: auto; padding-left: 12px; color: var(--muted); font-size: 11px; font-family: var(--mono); }
+
+  /* ---------- estructura: 3 columnas ---------- */
+  .app { display: grid; grid-template-columns: 264px minmax(0, 1fr) 348px; height: 100vh; }
+  .app.no-side { grid-template-columns: 0 minmax(0, 1fr) 348px; }
+  .app.no-chat { grid-template-columns: 264px minmax(0, 1fr) 0; }
+  .app.no-side.no-chat { grid-template-columns: 0 minmax(0, 1fr) 0; }
+
+  /* ---------- barra lateral ---------- */
+  .side { background: var(--panel); border-right: 1px solid var(--line-soft); display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 14px 12px 12px; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 0 2px 4px; }
+  .brand-logo { height: 34px; width: auto; max-width: calc(100% - 40px); object-fit: contain; object-position: left center; display: block; }
+  .brand .icon-btn { margin-left: auto; }
+  .search { position: relative; display: flex; align-items: center; }
+  .search > span:first-child { position: absolute; left: 10px; color: var(--muted); }
+  .search input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 56px 7px 32px; font-size: 13px; outline: none; }
+  .search input:focus { border-color: var(--brand-edge); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .search kbd { position: absolute; right: 7px; font: 10.5px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; background: var(--surface); }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: -4px; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 8px; color: var(--ink-2); font-size: 13.5px; border: 0; background: none; text-align: left; text-decoration: none; }
+  .nav-item:hover { background: var(--surface); color: var(--ink); }
+  .nav-item.on { background: var(--surface-2); color: var(--ink); }
+  .nav-item .count { margin-left: auto; font: 11px var(--mono); color: var(--brand-ink); }
+  .brand-mark { display: none; width: 30px; height: 30px; }
+  /* Contactos: se pliega y despliega */
+  .contacts-sec { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .contacts-sec.open { flex: 1 1 auto; }
+  .contacts-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+  .contacts-sec:not(.open) .contacts-body { display: none; }
+  .sec-toggle { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 2px 0; color: var(--muted); font-size: 10.5px; letter-spacing: .1em; font-weight: 600; text-transform: uppercase; }
+  .sec-toggle:hover { color: var(--ink-2); }
+  .sec-toggle svg { width: 13px; height: 13px; transition: transform .15s; }
+  .contacts-sec:not(.open) .sec-toggle svg { transform: rotate(-90deg); }
+  .sec-toggle .n { font: 10.5px var(--mono); letter-spacing: 0; color: var(--muted); }
+  .contacts-sec.open .sec-toggle .n { display: none; }
+  .section-head { display: flex; align-items: center; gap: 8px; font-size: 10.5px; letter-spacing: .1em; color: var(--muted); font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+  .section-head .live { display: inline-flex; align-items: center; gap: 5px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; flex: none; }
+  .section-head .icon-btn { margin-left: auto; width: 24px; height: 24px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .seg button { border: 0; background: none; border-radius: 6px; padding: 5px; font-size: 12.5px; color: var(--muted); }
+  .seg button.on { background: var(--surface-3); color: var(--ink); }
+  .seg .n { font: 11px var(--mono); margin-left: 5px; }
+  .contacts { flex: 1; min-height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
+  .contact { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 9px; width: 100%; text-align: left; border: 1px solid transparent; background: none; padding: 6px 7px; border-radius: 9px; }
+  .contact:hover { background: var(--surface); }
+  .contact.on { background: var(--surface-2); border-color: var(--line); }
+  .contact .name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .contact .sub { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: var(--surface-3); color: var(--ink-2); flex: none; }
+  .avatar.brand { background: var(--brand-soft); color: var(--brand-ink); }
+  .unread { min-width: 18px; height: 18px; border-radius: 9px; background: var(--brand-edge); color: #fff; font: 600 10.5px var(--mono); display: grid; place-items: center; padding: 0 5px; }
+  .avatar.green { background: var(--green-soft); color: var(--green); }
+  .empty { color: var(--muted); font-size: 12.5px; padding: 6px 8px; }
+  .more { margin: 4px auto; }
+  .quota { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; font-size: 12px; margin-top: auto; }
+  .quota:empty { display: none; }
+  .quota-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: 2px; }
+  .quota-head .mono { font-weight: 400; color: var(--muted); font-size: 11px; }
+  .quota-row { margin-top: 7px; }
+  .quota-row .top { display: flex; justify-content: space-between; color: var(--ink-2); }
+  .quota-row .top .mono { color: var(--ink); font-size: 11.5px; }
+  .bar { height: 3px; background: var(--surface-3); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--brand-ink); border-radius: 3px; }
+  .bar > i.warn { background: var(--amber); }
+  .bar > i.bad { background: var(--red); }
+  .quota .foot { color: var(--muted); font-size: 11px; margin-top: 8px; }
+
+  /* ---------- centro ---------- */
+  .center { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+  .topbar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--line-soft); min-height: 52px; }
+  .crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); min-width: 0; }
+  .crumbs b { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crumb-link { color: var(--muted); text-decoration: none; }
+  .crumb-link:hover { color: var(--ink); }
+  .topbar .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .scroll { flex: 1; overflow-y: auto; min-height: 0; }
+  .welcome { margin: auto; max-width: 480px; padding: 32px; color: var(--muted); text-align: center; }
+  .welcome img { width: 72px; }
+  .welcome h2 { color: var(--ink); font-size: 20px; margin: 14px 0 8px; }
+
+  .client { padding: 18px 24px 0; }
+  .client-top { display: flex; align-items: center; gap: 14px; }
+  .client-top .avatar { width: 46px; height: 46px; font-size: 15px; border-radius: 12px; }
+  .client-top h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; display: inline; }
+  .client-top .phone { font: 13px var(--mono); color: var(--muted); margin-left: 8px; }
+  .client-top .tags { margin-left: auto; display: flex; gap: 6px; }
+  .tag { font-size: 11.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid; }
+  .tag.wa { color: var(--green); border-color: rgba(62,207,142,.35); background: var(--green-soft); }
+  .tag.cw { color: var(--brand-ink); border-color: rgba(143,176,234,.35); background: var(--brand-soft); }
+  .stats { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .stats b { color: var(--ink); font-weight: 600; }
+  .stats .dot { margin-right: 5px; }
+
+  .banner { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid; font-size: 13px; }
+  .banner > span:first-child { margin-top: 2px; }
+  .banner .grow { flex: 1; }
+  .banner.info { background: rgba(32,71,136,.18); border-color: rgba(53,99,179,.45); color: var(--ink); }
+  .banner.info > span:first-child { color: var(--brand-ink); }
+  .banner.warn { background: var(--amber-soft); border-color: rgba(242,193,78,.35); color: #f5d27a; }
+  .banner.err { background: var(--red-soft); border-color: rgba(240,112,112,.35); color: var(--red); }
+  .banner .link { background: none; border: 0; color: var(--brand-ink); font-weight: 500; padding: 0; white-space: nowrap; }
+  .banner .x { background: none; border: 0; color: var(--muted); padding: 0 2px; }
+  code.wa { font: 11.5px var(--mono); color: var(--green); background: var(--green-soft); padding: 1px 6px; border-radius: 5px; }
+
+  .tabs { display: flex; gap: 22px; padding: 0 24px; margin-top: 16px; border-bottom: 1px solid var(--line-soft); }
+  .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 9px 0; color: var(--muted); font-size: 13.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .tab.on { color: var(--ink); border-bottom-color: var(--brand-ink); }
+  .pill { font: 10.5px var(--mono); padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--ink-2); }
+
+  .pane { padding: 14px 24px 18px; }
+  .thread-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .thread-pick { display: inline-flex; align-items: center; gap: 8px; max-width: 70%; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: 12.5px; }
+  .thread-pick .d { font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+  .thread-pick .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qa-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+  .answer { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .answer-head { display: flex; align-items: center; gap: 8px; padding: 11px 14px 0; font-size: 13px; min-width: 0; }
+  .answer-head .logo { width: 22px; height: 22px; display: block; flex: none; }
+  .answer-head b { font-weight: 600; }
+  .q-row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-top: 4px; }
+  .q-meta { font-size: 11px; color: var(--muted); }
+  .q-bubble { max-width: min(78%, 640px); background: var(--brand); color: #fff; border-radius: 12px 12px 4px 12px; padding: 8px 12px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .answer-body { padding: 8px 14px 4px; color: var(--ink); overflow-x: auto; }
+  .answer-body > :first-child { margin-top: 4px; } .answer-body > :last-child { margin-bottom: 6px; }
+  .answer-body h1, .answer-body h2, .answer-body h3 { font-size: 14.5px; margin: 14px 0 6px; }
+  .answer-body strong { background: var(--amber-soft); color: #f5d27a; font-weight: 500; padding: 0 3px; border-radius: 3px; }
+  .answer-body table { border-collapse: collapse; margin: 8px 0; font-size: 13px; width: 100%; }
+  .answer-body th, .answer-body td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .answer-body th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .answer-body code { font: 12px var(--mono); background: var(--brand-soft); color: var(--brand-ink); padding: 1px 5px; border-radius: 4px; }
+  .answer-body blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--ink-2); }
+  .answer-body ul, .answer-body ol { padding-left: 20px; }
+  .answer-foot { display: flex; align-items: center; gap: 10px; padding: 6px 14px 10px; font-size: 11.5px; color: var(--muted); }
+  .answer-foot:empty { display: none; }
+  .answer.err { border-color: rgba(240,112,112,.45); }
+  .answer.err .answer-body { color: var(--red); }
+  .typing { color: var(--muted); font-style: italic; }
+  /* Mientras se analiza: solo un círculo de carga y "Analizando…" */
+  .analyzing { display: inline-flex; align-items: center; gap: 9px; color: var(--ink-2); font-size: 13.5px; padding: 6px 2px; }
+  .analyzing .spinner, .loading .spinner, .banner .spinner { border-color: var(--surface-3); border-top-color: var(--brand-ink); }
+  .loading { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--ink-2); font-size: 14px; padding: 40px 16px; text-align: center; }
+  .loading .spinner { width: 26px; height: 26px; border-width: 3px; }
+  .loading.err { color: var(--red); }
+  .banner .spinner { margin-top: 2px; flex: none; }
+  .event { align-self: center; font-size: 11.5px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 3px 12px; }
+
+  .composer-wrap { padding: 10px 24px 12px; border-top: 1px solid var(--line-soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 9px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; font-size: 12.5px; color: var(--ink-2); }
+  .chip:hover { border-color: var(--brand-edge); color: var(--ink); }
+  .composer { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px 8px; }
+  .composer:focus-within { border-color: var(--brand-edge); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .composer textarea { width: 100%; resize: none; border: 0; outline: none; background: none; min-height: 24px; max-height: 180px; font-size: 14px; }
+  .composer-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .model-pick { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 4px 9px; font-size: 12.5px; color: var(--ink-2); }
+  .composer-row .kbd-hint { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+  .saved-note { text-align: center; font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  /* métricas de atención */
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; min-width: 0; }
+  .kpi .l { font-size: 12px; color: var(--muted); }
+  .kpi .v { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin-top: 2px; }
+  .kpi .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .kpi.warn .v { color: var(--amber); }
+  .kpi.good .v { color: var(--green); }
+  .mcard { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; margin-top: 10px; }
+  .mcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .mcard h4 { margin: 0; font-size: 13.5px; }
+  .mcard .sub { font-size: 12px; color: var(--muted); }
+  .mgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .mgrid > .mcard { margin-top: 10px; }
+  .chart svg { width: 100%; height: 160px; display: block; }
+  .chart .axis { display: flex; justify-content: space-between; font: 10.5px var(--mono); color: var(--muted); margin-top: 4px; }
+  .legend-inline { display: flex; gap: 12px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .legend-inline i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+  .buckets { display: flex; flex-direction: column; gap: 8px; }
+  .bucket { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 12px; color: var(--ink-2); }
+  .bucket .bars { display: flex; flex-direction: column; gap: 3px; }
+  .bucket .bar-row { display: flex; align-items: center; gap: 6px; font: 10.5px var(--mono); color: var(--muted); }
+  .bucket .bar-row i { display: block; height: 7px; border-radius: 3px; min-width: 2px; }
+  .heat { display: grid; grid-template-columns: 30px repeat(24, minmax(0, 1fr)); gap: 2px; font-size: 10px; color: var(--muted); align-items: center; }
+  .heat .c { aspect-ratio: 1; border-radius: 3px; background: var(--surface-3); }
+  .heat .h { text-align: center; font-family: var(--mono); }
+  .waits { display: flex; flex-direction: column; gap: 8px; }
+  .wait { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 12.5px; padding: 9px 11px; border: 1px solid var(--line-soft); border-radius: 9px; background: var(--bg); }
+  .wait .d { font-weight: 700; color: var(--amber); font-size: 13px; }
+  .wait .t { color: var(--ink-2); }
+  .wait .q { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+  .agents { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .agents th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11.5px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .agents td { padding: 8px; border-bottom: 1px solid var(--line-soft); }
+  .agents tr:last-child td { border-bottom: 0; }
+  .seg.mini { display: inline-grid; grid-template-columns: repeat(3, auto); padding: 2px; }
+  .seg.mini button { padding: 2px 9px; font-size: 11.5px; }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mgrid { grid-template-columns: minmax(0, 1fr); } }
+  .metric { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; }
+  .metric .label { font-size: 12px; color: var(--muted); }
+  .metric .value { font-size: 13.5px; margin-top: 3px; }
+  .footnote { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .voice-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .voice { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .voice .who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .voice .text { margin-top: 6px; color: var(--ink-2); font-size: 13px; }
+  .pane-search .search input { padding-right: 10px; }
+
+  /* ---------- historial de chats (derecha) ---------- */
+  .chatpanel { background: var(--panel); border-left: 1px solid var(--line-soft); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .chat-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); min-height: 52px; }
+  .chat-head h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
+  .chat-head .btn { margin-left: auto; }
+  .chat-tools { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; }
+  .chat-tools .search input { padding-right: 10px; }
+  .part-head { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
+  .part-bar { display: flex; height: 4px; border-radius: 4px; overflow: hidden; background: var(--surface-3); gap: 2px; }
+  .part-bar i { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; }
+  .legend .dot { width: 6px; height: 6px; }
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--green); border: 1px solid rgba(62,207,142,.35); background: var(--green-soft); border-radius: 7px; padding: 2px 8px; align-self: flex-start; }
+  .filter-chip button { background: none; border: 0; color: inherit; padding: 0; display: inline-flex; }
+  .chat-list { flex: 1; overflow-y: auto; padding: 4px 8px 14px; }
+  /* Separador de día: queda pegado arriba mientras se recorren los mensajes de ese día (como en WhatsApp). */
+  .day { position: sticky; top: 6px; z-index: 2; display: flex; justify-content: center; margin: 10px 0 6px; pointer-events: none; }
+  .day span { pointer-events: auto; font-size: 11.5px; font-weight: 500; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.45); }
+  .cmsg { display: grid; grid-template-columns: 26px minmax(0,1fr); gap: 9px; padding: 7px 6px; border-radius: 9px; }
+  .cmsg:hover { background: var(--surface); }
+  .cmsg .avatar { width: 26px; height: 26px; font-size: 10.5px; }
+  .cmsg .who { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .cmsg .who b { font-weight: 600; }
+  .cmsg .who b.who-client { color: #7ee2b3; }
+  .cmsg .who b.who-agent { color: var(--brand-ink); }
+  .cmsg .who time { font: 11px var(--mono); color: var(--muted); }
+  .cmsg .text { font-size: 13px; color: var(--ink); margin-top: 1px; white-space: pre-wrap; word-break: break-word; }
+  .cmsg.internal .text { color: var(--amber); }
+  .cmsg mark { background: var(--amber-soft); color: #f5d27a; border-radius: 3px; }
+  .cmsg.flash { animation: flash 2.8s ease-out; }
+  @keyframes flash { 0%, 45% { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand-ink); } 100% { background: transparent; box-shadow: inset 3px 0 0 transparent; } }
+  .ts-link { color: var(--brand-ink); background: var(--brand-soft); border-radius: 4px; padding: 0 4px; cursor: pointer; white-space: nowrap; }
+  .ts-link:hover, .ts-link:focus-visible { text-decoration: underline; outline: none; }
+  .badge-wa { font: 10px var(--mono); color: var(--green); background: var(--green-soft); border: 1px solid rgba(62,207,142,.3); border-radius: 5px; padding: 0 5px; }
+  .badge-note { font-size: 10.5px; color: var(--amber); border: 1px solid rgba(242,193,78,.35); border-radius: 5px; padding: 0 5px; }
+
+  /* reproductor de notas de voz */
+  .player { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; margin-top: 5px; max-width: 280px; }
+  .player button { width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; display: grid; place-items: center; padding: 0; flex: none; }
+  .player button svg { width: 11px; height: 11px; }
+  .player .track { flex: 1; height: 16px; cursor: pointer; position: relative; background: repeating-linear-gradient(90deg, var(--surface-3) 0 2px, transparent 2px 4px) center / 100% 60% no-repeat; }
+  .player .track i { position: absolute; left: 0; top: 20%; bottom: 20%; width: 0; background: repeating-linear-gradient(90deg, var(--brand-ink) 0 2px, transparent 2px 4px); }
+  .player time { font: 10.5px var(--mono); color: var(--muted); min-width: 30px; text-align: right; }
+  .player.error { color: var(--muted); font-size: 11.5px; }
+
+  /* ---------- progreso, diálogos ---------- */
+  .progress { margin: 40px auto; width: min(640px, calc(100% - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .progress h3 { margin: 0 0 6px; font-size: 15px; }
+  .progress pre { margin: 10px 0 0; max-height: 300px; overflow: auto; font: 12px var(--mono); color: var(--muted); white-space: pre-wrap; }
+  dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--surface); color: var(--ink); }
+  dialog::backdrop { background: rgb(0 0 0 / .6); }
+  .dlg { display: flex; flex-direction: column; height: 100%; }
+  .dlg header { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); align-items: center; }
+  .dlg header h3 { margin: 0 auto 0 4px; font-size: 14px; white-space: nowrap; }
+  #transcriptDlg { width: min(1000px, calc(100% - 32px)); height: min(85vh, 900px); }
+  #transcriptDlg header .search { flex: 1; }
+  #transcriptDlg header .search input { padding-right: 10px; }
+  .dlg pre { flex: 1; margin: 0; padding: 14px 16px; overflow: auto; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--ink-2); }
+  .dlg mark { background: var(--amber); color: #1d2330; }
+  #importDlg { width: min(520px, calc(100% - 32px)); }
+  .import-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; font-size: 13.5px; }
+  .import-body ol { margin: 0; padding-left: 20px; color: var(--ink-2); }
+  .import-body .bar { height: 6px; }
+  .import-status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+  .import-status.err { color: var(--red); }
+  #passwordDlg { width: min(420px, calc(100% - 32px)); }
+  #newContactDlg { width: min(480px, calc(100% - 32px)); }
+  .pw-form .opt { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+  .pw-form input[type="file"] { padding: 6px; font-size: 12.5px; }
+  .nc-help { font-size: 12px; color: var(--muted); margin-top: -4px; }
+  .senders { display: flex; flex-direction: column; gap: 6px; }
+  .senders .q { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .pw-form label.sender { flex-direction: row; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; cursor: pointer; font-weight: 500; color: var(--ink); }
+  .pw-form label.sender:has(input:checked) { border-color: var(--brand-edge); background: var(--brand-soft); }
+  .pw-form label.sender input { margin: 0; padding: 0; width: 15px; height: 15px; accent-color: var(--brand-edge); flex: none; }
+  .sender .c { margin-left: auto; color: var(--muted); font: 11.5px var(--mono); }
+  .pw-form label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+  .pw-form input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13.5px; font-weight: 400; outline: none; }
+  .pw-form input:focus { border-color: var(--brand-edge); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .pw-intro { color: var(--ink-2); font-size: 13px; }
+
+  /* ---------- cuenta ---------- */
+  .me { display: flex; align-items: center; gap: 9px; padding: 9px 2px 0; border-top: 1px solid var(--line-soft); }
+  .me:empty { display: none; }
+  .me .who { min-width: 0; flex: 1; line-height: 1.3; }
+  .me-avatar { border: 0; padding: 0; cursor: pointer; }
+  .me .who b { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .me .who span { display: block; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; font-size: 13px; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+
+  /* ---------- páginas: Inicio, Clientes, Conversaciones IA ---------- */
+  .page { width: min(1080px, 100%); margin: 0 auto; padding: 22px 28px 40px; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .page-head h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .page-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat .n { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .stat .l { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 16px 6px; }
+  .card-head h3 { margin: 0; font-size: 14px; }
+  .card-head a { font-size: 12.5px; color: var(--brand-ink); text-decoration: none; }
+  .rows { display: flex; flex-direction: column; padding: 4px 8px 10px; }
+  .rows .empty { padding: 10px 8px; }
+  .row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px; border-radius: 9px; text-decoration: none; color: inherit; border: 0; background: none; text-align: left; width: 100%; }
+  .row:hover { background: var(--surface-2); }
+  .row .avatar { width: 32px; height: 32px; }
+  .row .t { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .s { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .r { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .row .ico { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-ink); }
+  .table-tools { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .table-tools .search { flex: 1; min-width: 220px; }
+  .table-tools .search input { padding-right: 10px; }
+  .status-pill { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .status-pill.ok { color: var(--green); border-color: rgba(62,207,142,.35); background: var(--green-soft); }
+  @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cols { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---------- barra lateral plegada: queda una columna de íconos ---------- */
+  @media (min-width: 761px) {
+    .app.no-side { grid-template-columns: 64px minmax(0, 1fr) 348px; }
+    .app.no-side.no-chat { grid-template-columns: 64px minmax(0, 1fr) 0; }
+    .app.no-side .side { padding: 12px 8px; align-items: center; }
+    .app.no-side .brand { flex-direction: column; gap: 10px; padding: 0 0 4px; }
+    .app.no-side .brand .icon-btn { margin-left: 0; }
+    .app.no-side .brand-mark { display: block; }
+    .app.no-side .brand-logo, .app.no-side .side .search, .app.no-side .side .hint, .app.no-side .contacts-sec,
+    .app.no-side .quota, .app.no-side .me .who, .app.no-side .me .icon-btn, .app.no-side .side .lbl, .app.no-side .nav-item .count { display: none; }
+    .app.no-side #analyzeBtn { width: 40px; padding: 8px 0; justify-content: center; }
+    .app.no-side .nav { width: 100%; align-items: center; }
+    .app.no-side .nav-item { justify-content: center; width: 42px; padding: 9px 0; }
+    .app.no-side .me { border-top: 0; justify-content: center; margin-top: auto; padding: 0; }
+  }
+
+  /* ---------- pantallas angostas: los paneles laterales pasan a cajones ---------- */
+  .drawer-toggle { display: none !important; }
+  @media (max-width: 1180px) {
+    .app, .app.no-chat { grid-template-columns: 264px minmax(0, 1fr) 0; }
+    .app.no-side, .app.no-side.no-chat { grid-template-columns: 64px minmax(0, 1fr) 0; }
+    .chatpanel { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 92vw); z-index: 40; box-shadow: -20px 0 40px rgba(0,0,0,.5); transform: translateX(100%); transition: transform .2s; }
+    .app.show-chat .chatpanel { transform: none; }
+    .drawer-toggle.chat { display: inline-grid !important; }
+  }
+  @media (max-width: 760px) {
+    .app, .app.no-side, .app.no-chat, .app.no-side.no-chat { grid-template-columns: 0 minmax(0, 1fr) 0; }
+    .side { position: fixed; top: 0; left: 0; bottom: 0; width: min(290px, 88vw); z-index: 40; box-shadow: 20px 0 40px rgba(0,0,0,.5); transform: translateX(-100%); transition: transform .2s; }
+    .app.show-side .side { transform: none; }
+    .drawer-toggle.side-t { display: inline-grid !important; }
+    .client, .tabs, .pane, .composer-wrap, .topbar { padding-left: 14px; padding-right: 14px; }
+    .client-top { flex-wrap: wrap; }
+    .client-top .tags { margin-left: 0; }
+    .topbar .btn .lbl, .composer-row .kbd-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app no-chat" id="app">
+  <aside class="side" id="side">
+    <div class="brand">
+      <img class="brand-logo" src="/assets/logo-minimal.png" alt="Minimal Company">
+      <img class="brand-mark" src="/assets/logo-hex.png" alt="Minimal Company">
+      <button class="icon-btn bare" id="collapseSide" title="Ocultar panel"></button>
+    </div>
+    <form class="search" id="searchForm">
+      <span data-icon="search"></span>
+      <input id="searchInput" placeholder="Buscar contacto" autocomplete="off" title="Nombre, teléfono (+57300…) o conversación (conv:18)">
+      <kbd>Ctrl K</kbd>
+    </form>
+    <button class="btn primary block" id="analyzeBtn" title="Analizar contacto"><span data-icon="plus"></span><span class="lbl">Analizar contacto</span></button>
+    <div class="hint">Busca contactos en Chatwoot.</div>
+    <nav class="nav" id="nav">
+      <a class="nav-item" href="#/" data-view="home" title="Inicio"><span data-icon="home"></span><span class="lbl">Inicio</span></a>
+      <a class="nav-item" href="#/clientes" data-view="clients" title="Clientes"><span data-icon="users"></span><span class="lbl">Clientes</span><span class="count" id="navCount"></span></a>
+      <a class="nav-item" href="#/ia" data-view="threads" title="Conversaciones IA"><span data-icon="chat"></span><span class="lbl">Conversaciones IA</span></a>
+      <a class="nav-item admin-only" href="/panel" title="Panel de control" hidden><span data-icon="sliders"></span><span class="lbl">Panel de control</span></a>
+      <a class="nav-item admin-only" href="/panel#/crm" title="Integraciones" hidden><span data-icon="plug"></span><span class="lbl">Integraciones</span></a>
+    </nav>
+    <div class="contacts-sec open" id="contactsSec">
+      <div class="section-head">
+        <button class="sec-toggle" id="contactsToggle" aria-expanded="true" title="Mostrar u ocultar la lista de contactos"><span data-icon="chevron"></span>Contactos <span class="n" id="contactsN"></span></button>
+        <span class="live" id="contactsLive"></span><button class="icon-btn bare" id="refreshContacts" title="Recargar contactos"></button>
+      </div>
+      <div class="contacts-body">
+        <div class="seg">
+          <button data-tab="all" class="on">Todos<span class="n" id="allCount"></span></button>
+          <button data-tab="analyzed">Analizados<span class="n" id="analyzedCount"></span></button>
+        </div>
+        <div class="contacts" id="contacts"><div class="empty">Cargando…</div></div>
+      </div>
+    </div>
+    <div class="quota" id="usage"></div>
+    <div class="me" id="me"></div>
+  </aside>
+
+  <main class="center" id="main"></main>
+
+  <aside class="chatpanel" id="chatPanel"></aside>
+</div>
+
+<dialog id="transcriptDlg">
+  <div class="dlg">
+    <header>
+      <h3>Transcript completo</h3>
+      <div class="search"><span data-icon="search"></span><input id="transcriptFilter" placeholder="Filtrar líneas…"></div>
+      <button class="btn" id="closeTranscript">Cerrar</button>
+    </header>
+    <pre id="transcriptPre"></pre>
+  </div>
+</dialog>
+
+<dialog id="importDlg">
+  <div class="dlg">
+    <header><h3>Importar chat de WhatsApp</h3><button class="icon-btn bare" id="closeImport" title="Cerrar"></button></header>
+    <div class="import-body">
+      <div>Sirve para recuperar mensajes y notas de voz que no llegaron a Chatwoot. Desde el teléfono:</div>
+      <ol>
+        <li>Abra el chat del cliente en WhatsApp.</li>
+        <li>⋮ → Más → <b>Exportar chat</b> → <b>Incluir archivos</b>.</li>
+        <li>Pase el .zip a este computador y selecciónelo acá.</li>
+      </ol>
+      <input type="file" id="importFile" accept=".zip,application/zip">
+      <div class="bar" id="importBar" hidden><i id="importFill" style="width:0"></i></div>
+      <div class="import-status" id="importStatus"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn" id="cancelImport">Cancelar</button>
+        <button class="btn primary" id="startImport" disabled><span data-icon="upload"></span>Importar</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="newContactDlg">
+  <div class="dlg">
+    <header><h3>Nuevo contacto</h3><button class="icon-btn bare" id="closeNewContact" title="Cerrar"></button></header>
+    <div class="import-body pw-form">
+      <div class="pw-intro">Para clientes que no están en Chatwoot: se crea el contacto allá y se analiza el chat que exporte desde WhatsApp.</div>
+      <label>Nombre<input id="ncName" autocomplete="off" placeholder="Nombre del cliente"></label>
+      <label>Teléfono<input id="ncPhone" autocomplete="off" inputmode="tel" placeholder="+57 300 123 4567"></label>
+      <label><span>Chat de WhatsApp (.zip) <span class="opt">· opcional</span></span><input type="file" id="ncFile" accept=".zip,application/zip"></label>
+      <div class="nc-help">En el teléfono: abra el chat › ⋮ › Más › <b>Exportar chat</b> › <b>Incluir archivos</b>, y pase el .zip a este computador.</div>
+      <div class="bar" id="ncBar" hidden><i id="ncFill" style="width:0"></i></div>
+      <div class="import-status" id="ncStatus"></div>
+      <div class="senders" id="ncSenders" hidden></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button type="button" class="btn" id="ncCancel">Cancelar</button>
+        <button type="button" class="btn primary" id="ncSubmit">Crear e importar</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="passwordDlg">
+  <form class="dlg pw-form" id="passwordForm" novalidate>
+    <header><h3 id="passwordTitle">Cambiar contraseña</h3><button type="button" class="icon-btn bare" id="closePassword" title="Cerrar"></button></header>
+    <div class="import-body">
+      <div class="pw-intro" id="passwordIntro"></div>
+      <input type="text" id="pwUser" autocomplete="username" hidden>
+      <label>Contraseña actual<input type="password" id="pwCurrent" autocomplete="current-password" required></label>
+      <label>Contraseña nueva<input type="password" id="pwNext" autocomplete="new-password" minlength="10" required></label>
+      <label>Repita la contraseña nueva<input type="password" id="pwConfirm" autocomplete="new-password" minlength="10" required></label>
+      <div class="import-status" id="passwordStatus"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button type="button" class="btn" id="cancelPassword">Cancelar</button>
+        <button type="submit" class="btn primary" id="savePassword">Guardar</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script src="/vendor/marked.js"></script>
+<script>
+"use strict";
+
+// ---------- íconos (trazos simples, 16 px) ----------
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  users: '<path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="3.5"/><path d="M22 19v-1a4 4 0 0 0-3-3.9M16 3.2a3.5 3.5 0 0 1 0 6.6"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4"/>',
+  download: '<path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/>',
+  upload: '<path d="M12 20V9m0 0-4 4m4-4 4 4M5 4h14"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  alert: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4M12 17h.01"/>',
+  arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+  play: '<path d="M7 5v14l12-7L7 5Z" fill="currentColor" stroke="none"/>',
+  pause: '<path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" stroke="none"/>',
+  clip: '<path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L15 6.6"/>',
+  panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  chat: '<path d="M20 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9Z"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  thread: '<path d="M4 6h16M4 12h10M4 18h7"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M16 6l3 3M14 8l2 2"/>',
+  home: '<path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/>',
+  sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  plug: '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0V7ZM12 16v5"/>',
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>',
+};
+function icon(name) {
+  const span = document.createElement("span");
+  span.style.display = "inline-flex";
+  span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] ?? ""}</svg>`;
+  return span;
+}
+function fillIcons(root = document) {
+  root.querySelectorAll("[data-icon]").forEach((n) => n.replaceWith(icon(n.dataset.icon)));
+}
+
+// ---------- utilidades ----------
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) if (c != null && c !== false) node.append(c instanceof Node ? c : String(c));
+  return node;
+}
+
+// Las respuestas pueden citar texto del cliente: nada de HTML crudo, links ni imágenes.
+marked.use({
+  gfm: true,
+  breaks: true,
+  renderer: {
+    html({ text }) { return esc(text); },
+    link({ tokens }) { return this.parser.parseInline(tokens); },
+    image({ text }) { return esc(text); },
+  },
+});
+
+/** Sesión vencida o cerrada en otro lado: a la página de ingreso, que después vuelve a este cliente. */
+let leaving = false;
+function toLogin() {
+  leaving = true;
+  location.replace("/login" + (/^#\/[\w/-]*$/.test(location.hash) ? location.hash : ""));
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, options);
+  if (res.status === 401) { toLogin(); throw new Error("Su sesión venció. Vuelva a ingresar."); }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+function ago(ms) {
+  const min = Math.round((Date.now() - ms) / 60000);
+  if (min < 1) return "recién";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.round(h / 24)} d`;
+}
+// Hora de Colombia siempre, igual que el transcript que lee el modelo: así las fechas que cita coinciden con el panel.
+const TZ = "America/Bogota";
+const shortDate = (ms) => new Date(ms).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short", timeZone: TZ });
+const hhmm = (s) => new Date(s * 1000).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ });
+const dayLabel = (s) => new Date(s * 1000).toLocaleDateString("en-CA", { timeZone: TZ });
+/** "AAAA-MM-DD HH:MM", el mismo formato con que el transcript marca cada mensaje; ordena cronológicamente como texto. */
+const minuteKey = (s) => `${dayLabel(s)} ${hhmm(s)}`;
+/** "Hoy", "Ayer" o "Martes, 21 de julio de 2026", para el separador de días del historial de chats. */
+function dayTitle(s) {
+  const day = dayLabel(s), now = Date.now() / 1000;
+  if (day === dayLabel(now)) return "Hoy";
+  if (day === dayLabel(now - 86400)) return "Ayer";
+  const t = new Date(s * 1000).toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: TZ });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+const initials = (name) => (name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+const firstName = (name) => (name || "").split(/\s+/)[0] || "";
+/** Nota de voz que WhatsApp ya no sirve (vencida): no tiene sentido mostrar el reproductor. */
+const playable = (m) => m.audioKey && !/audio no disponible/.test(m.text);
+
+/** Menú flotante junto a un botón; se cierra al elegir, al hacer clic afuera o con Escape. */
+function openMenu(anchor, items) {
+  closeMenu();
+  const menu = el("div", { class: "menu", id: "menu" });
+  for (const item of items) {
+    if (item === "sep") { menu.append(el("div", { class: "sep" })); continue; }
+    menu.append(el("button", { class: item.on ? "on" : "", onclick: () => { closeMenu(); item.action(); } },
+      item.icon ? icon(item.icon) : null, item.label, item.meta != null ? el("span", { class: "meta" }, item.meta) : null));
+  }
+  document.body.append(menu);
+  const r = anchor.getBoundingClientRect();
+  const top = r.bottom + 6 + menu.offsetHeight > innerHeight ? r.top - menu.offsetHeight - 6 : r.bottom + 6;
+  menu.style.top = `${Math.max(8, top)}px`;
+  menu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8))}px`;
+  setTimeout(() => document.addEventListener("click", closeMenu, { once: true }), 0);
+}
+function closeMenu() { $("menu")?.remove(); }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+
+// ---------- estado ----------
+const state = {
+  contactId: null, meta: null, transcript: null, messages: [],
+  threads: [], threadId: null, busy: false, poll: null, rerender: false,
+  tab: "ai", model: "", models: [], modelLabels: {}, view: "", clientsFilter: "all", clientsQuery: "",
+  chatQuery: "", onlyWA: false, voiceQuery: "",
+  contactsTab: "all", allContacts: [], allTotal: 0, allPage: 0, histories: [], contactsAt: 0, results: null,
+  dismissed: new Set(),
+};
+
+/** Al abrir un cliente cuyo historial tiene más de esto, se sincroniza solo en segundo plano. */
+const AUTO_SYNC_MS = 30 * 60 * 1000;
+
+const CHIPS = [
+  ["Resumir en 5 puntos", "Resuma en 5 puntos la relación con este cliente: qué busca, qué se acordó, en qué quedó y qué está pendiente."],
+  ["Redactar mensaje de cobro", "Redacte un mensaje de WhatsApp cordial y firme para cobrarle a este cliente lo pendiente, con base en lo acordado en el chat. Cite las fechas de los acuerdos."],
+  ["Riesgos legales", "¿Hay riesgos legales o de reputación en esta relación? Señale los mensajes que los muestran y qué haría para reducirlos."],
+  ["Qué quedó pendiente", "¿Qué compromisos quedaron pendientes, de cada lado? Liste cada uno con la fecha en que se acordó."],
+];
+
+const missingAudios = (m) => (m.failedAudios || 0) + (m.pendingAudios || 0);
+const currentThread = () => state.threads.find((t) => t.id === state.threadId) || null;
+const questionCount = () => state.threads.reduce((n, t) => n + t.messages.filter((x) => x.role === "user").length, 0);
+
+// ---------- barra lateral ----------
+async function loadUsage() {
+  const box = $("usage");
+  try {
+    const u = await api("/api/usage");
+    const rows = u.models.filter((m) => m.use !== "respaldo Live").map((m) => {
+      const pct = m.daily ? Math.min(100, (m.requests / m.daily) * 100) : 0;
+      const label = m.use === "notas de voz" ? "Notas de voz" : m.use === "preguntas" ? "Preguntas" : m.label || m.model.replace(/^gemini-/, "");
+      return el("div", { class: "quota-row", title: m.model },
+        el("div", { class: "top" }, el("span", {}, label), el("span", { class: "mono" }, m.daily ? `${m.requests}/${m.daily}` : m.requests)),
+        el("div", { class: "bar" }, el("i", { class: m.exhausted || pct >= 100 ? "bad" : pct >= 75 ? "warn" : "", style: `width:${Math.max(pct, m.requests ? 3 : 0)}%` })));
+    });
+    const live = u.models.find((m) => m.use === "respaldo Live");
+    box.replaceChildren(...[
+      el("div", { class: "quota-head" }, el("span", {}, u.title || "Cuota Gemini hoy"), el("span", { class: "mono" }, `renueva ${u.resetsAt}`)),
+      ...rows,
+      live ? el("div", { class: "foot" }, `Respaldo Live: ${live.requests} sesiones · sin límite`) : null,
+    ].filter(Boolean));
+  } catch (e) {
+    box.textContent = e.message;
+  }
+}
+
+function contactRow(c, sub, analyzed) {
+  const on = c.id === state.contactId;
+  // Sin leer en Chatwoot (insignia azul) o, si no, el punto verde de "ya analizado".
+  const unread = c.unread ?? state.allContacts.find((x) => x.id === c.id)?.unread ?? 0;
+  return el("button", { class: "contact" + (on ? " on" : ""), onclick: () => go(c.id) },
+    el("span", { class: "avatar" + (on ? " brand" : "") }, initials(c.name)),
+    el("span", { style: "min-width:0" }, el("div", { class: "name" }, c.name || "Sin nombre"), el("div", { class: "sub" }, sub)),
+    unread ? el("span", { class: "unread", title: `${unread} sin leer en Chatwoot` }, unread > 99 ? "99+" : unread)
+      : analyzed ? el("span", { class: "dot", title: "Historial analizado" }) : el("span"));
+}
+
+function renderContacts() {
+  const box = $("contacts");
+  $("allCount").textContent = state.allTotal || "";
+  $("analyzedCount").textContent = state.histories.length || "";
+  $("navCount").textContent = state.histories.length || "";
+  $("contactsN").textContent = state.allTotal || state.histories.length || "";
+  $("contactsLive").replaceChildren(el("i", { class: "dot" }), state.contactsAt ? ago(state.contactsAt) : "");
+  document.querySelectorAll("#contactsSec .seg button").forEach((b) => b.classList.toggle("on", b.dataset.tab === state.contactsTab && !state.results));
+  if (state.view === "clients") $("clientsRows")?.replaceWith(clientsRows());
+
+  if (state.results) {
+    box.replaceChildren(
+      el("div", { class: "section-head", style: "margin:2px 6px 4px" }, "Resultados",
+        el("button", { class: "icon-btn bare", title: "Cerrar búsqueda", onclick: () => { state.results = null; renderContacts(); } }, icon("x"))),
+      ...(state.results.length
+        ? state.results.map((c) => contactRow(c, [c.phone, c.hasHistory ? "analizado" : null].filter(Boolean).join(" · ") || `ID ${c.id}`, c.hasHistory))
+        : [el("div", { class: "empty" }, "No está en Chatwoot."),
+           el("button", { class: "btn small more", onclick: () => openNewContact(prefillFrom($("searchInput").value)) }, icon("plus"), "Crear contacto e importar su chat")]));
+    return;
+  }
+  if (state.contactsTab === "analyzed") {
+    box.replaceChildren(...(state.histories.length
+      ? state.histories.map((m) => contactRow({ id: m.contactId, name: m.name }, `${m.messages} mensajes · analizado ${ago(m.generatedAt)}`, true))
+      : [el("div", { class: "empty" }, "Todavía ninguno.")]));
+    return;
+  }
+  const analyzed = new Map(state.histories.map((m) => [m.contactId, m]));
+  const rows = state.allContacts.map((c) => {
+    const h = analyzed.get(c.id);
+    const sub = h ? `${h.messages} mensajes · analizado ${ago(h.generatedAt)}` : [c.phone, c.lastActivityAt ? ago(c.lastActivityAt * 1000) : null].filter(Boolean).join(" · ");
+    return contactRow(c, sub || `ID ${c.id}`, !!h);
+  });
+  const more = state.allContacts.length < state.allTotal
+    ? el("button", { class: "btn small ghost more", onclick: () => loadAllContacts(state.allPage + 1) }, "Cargar más")
+    : null;
+  box.replaceChildren(...[...(rows.length ? rows : [el("div", { class: "empty" }, state.allPage ? "Sin contactos." : "Cargando…")]), more].filter(Boolean));
+}
+
+async function loadHistories() {
+  state.histories = await api("/api/histories").catch(() => state.histories);
+  renderContacts();
+}
+
+async function loadAllContacts(page = 1) {
+  try {
+    const r = await api(`/api/contacts/all?page=${page}`);
+    state.allContacts = page === 1 ? r.contacts : [...state.allContacts, ...r.contacts];
+    state.allTotal = r.total;
+    state.allPage = page;
+    state.contactsAt = Date.now();
+  } catch (e) {
+    if (page === 1) $("contacts").replaceChildren(el("div", { class: "empty" }, e.message));
+    return;
+  }
+  renderContacts();
+}
+
+async function runSearch() {
+  const q = $("searchInput").value.trim();
+  if (!q) { focusSearch(); return; }
+  setContactsOpen(true);
+  state.results = [];
+  $("contacts").replaceChildren(el("div", { class: "empty" }, "Buscando…"));
+  try {
+    state.results = await api(`/api/contacts?q=${encodeURIComponent(q)}`);
+    renderContacts();
+    if (state.results.length === 1) go(state.results[0].id);
+  } catch (e) {
+    state.results = null;
+    $("contacts").replaceChildren(el("div", { class: "empty" }, e.message));
+  }
+}
+
+// ---------- navegación: la vista queda en la dirección ----------
+// #/ Inicio · #/clientes · #/ia (conversaciones con la IA) · #/c/9 (cliente) · #/c/9/t/<id> (conversación)
+function go(contactId, threadId) {
+  $("app").classList.remove("show-side");
+  const hash = `#/c/${contactId}` + (threadId ? `/t/${threadId}` : "");
+  if (location.hash !== hash) location.hash = hash;
+  else selectContact(contactId, threadId);
+}
+function route() {
+  const m = /^#\/c\/(\d+)(?:\/t\/([\w-]+))?$/.exec(location.hash);
+  if (m) return selectContact(Number(m[1]), m[2]);
+  leaveClient();
+  if (location.hash === "#/clientes") return renderClientsPage();
+  if (location.hash === "#/ia") return renderThreadsPage();
+  return renderHome();
+}
+addEventListener("hashchange", route);
+
+/** Al pasar a una página general: sin cliente abierto ni sondeos en curso. */
+function leaveClient() {
+  clearInterval(state.poll);
+  state.contactId = null;
+  state.meta = null;
+  $("chatPanel").replaceChildren();
+  $("app").classList.add("no-chat");
+  $("app").classList.remove("show-side");
+  renderContacts();
+}
+
+function setView(view) {
+  state.view = view;
+  const nav = view === "client" ? "clients" : view;
+  document.querySelectorAll("#nav .nav-item").forEach((a) => a.classList.toggle("on", a.dataset.view === nav));
+}
+
+function renderMain(...nodes) { $("main").replaceChildren(...nodes); }
+function sideToggle() {
+  return el("button", { class: "icon-btn drawer-toggle side-t", title: "Menú", onclick: (e) => { e.stopPropagation(); $("app").classList.toggle("show-side"); } }, icon("menu"));
+}
+const topbar = (...crumbs) => el("div", { class: "topbar" }, sideToggle(), el("div", { class: "crumbs" }, ...crumbs));
+const spinnerBox = (text = "") => el("div", { class: "loading" }, el("span", { class: "spinner" }), text);
+
+// ---------- página: Inicio ----------
+async function renderHome() {
+  setView("home");
+  renderMain(topbar(el("b", {}, "Inicio")), el("div", { class: "scroll" }, spinnerBox()));
+  const [histories, threads] = await Promise.all([api("/api/histories").catch(() => state.histories), api("/api/threads").catch(() => [])]);
+  if (state.view !== "home") return;
+  state.histories = histories;
+  renderContacts();
+
+  const hour = Number(new Date().toLocaleString("en-US", { hour: "numeric", hourCycle: "h23", timeZone: TZ }));
+  const greeting = hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
+  const name = state.me?.name && state.me.name !== "Administrador" ? firstName(state.me.name) : "";
+  const total = (k) => histories.reduce((n, m) => n + (m[k] || 0), 0);
+  const stat = (n, label) => el("div", { class: "stat" }, el("div", { class: "n" }, Number(n).toLocaleString("es-CO")), el("div", { class: "l" }, label));
+
+  const clientRows = histories.slice(0, 6).map((m) =>
+    el("a", { class: "row", href: `#/c/${m.contactId}` },
+      el("span", { class: "avatar brand" }, initials(m.name)),
+      el("span", { style: "min-width:0" }, el("div", { class: "t" }, m.name || "Sin nombre"), el("div", { class: "s" }, `${m.messages} mensajes · ${m.audios} notas de voz`)),
+      el("span", { class: "r" }, ago(m.generatedAt))));
+  const threadRows = threads.slice(0, 6).map((t) => threadRow(t));
+
+  renderMain(topbar(el("b", {}, "Inicio")), el("div", { class: "scroll" }, el("div", { class: "page" },
+    el("div", { class: "page-head" },
+      el("div", {}, el("h1", {}, `${greeting}${name ? `, ${name}` : ""}`), el("p", {}, "Lo analizado hasta ahora con el asistente.")),
+      el("div", { style: "display:flex; gap:8px" },
+        el("button", { class: "btn", onclick: () => openNewContact(), title: "Para un cliente que no está en Chatwoot" }, "Nuevo contacto"),
+        el("button", { class: "btn primary", onclick: focusSearch }, icon("plus"), "Analizar contacto"))),
+    el("div", { class: "stat-grid" },
+      stat(histories.length, "Clientes analizados"),
+      stat(total("messages"), "Mensajes reunidos"),
+      stat(total("audios"), "Notas de voz"),
+      stat(threads.reduce((n, t) => n + t.questions, 0), "Preguntas a la IA")),
+    el("div", { class: "cols" },
+      el("section", { class: "card" },
+        el("div", { class: "card-head" }, el("h3", {}, "Clientes analizados"), el("a", { href: "#/clientes" }, "Ver todos")),
+        el("div", { class: "rows" }, clientRows.length ? clientRows : el("div", { class: "empty" }, "Todavía ninguno. Busque un contacto con «Buscar contacto» para empezar."))),
+      el("section", { class: "card" },
+        el("div", { class: "card-head" }, el("h3", {}, "Conversaciones IA recientes"), el("a", { href: "#/ia" }, "Ver todas")),
+        el("div", { class: "rows" }, threadRows.length ? threadRows : el("div", { class: "empty" }, "Todavía no hay preguntas guardadas.")))))));
+}
+
+function focusSearch() {
+  const app = $("app");
+  app.classList.remove("no-side");
+  saveSidePref();
+  if (innerWidth <= 760) app.classList.add("show-side");
+  setTimeout(() => $("searchInput").focus(), 0);
+}
+
+function threadRow(t) {
+  return el("a", { class: "row", href: `#/c/${t.contactId}/t/${t.threadId}`, title: t.lastQuestion },
+    el("span", { class: "ico" }, icon("chat")),
+    el("span", { style: "min-width:0" }, el("div", { class: "t" }, t.firstQuestion), el("div", { class: "s" }, `${t.name || `Cliente ${t.contactId}`} · ${t.questions} pregunta${t.questions === 1 ? "" : "s"}`)),
+    el("span", { class: "r" }, ago(t.updatedAt)));
+}
+
+// ---------- página: Clientes ----------
+function renderClientsPage() {
+  setView("clients");
+  if (!state.allPage) loadAllContacts(1);
+  const input = el("input", { placeholder: "Buscar contacto", value: state.clientsQuery || "", autocomplete: "off" });
+  input.addEventListener("input", () => { state.clientsQuery = input.value; $("clientsRows")?.replaceWith(clientsRows()); });
+  input.addEventListener("keydown", (e) => {
+    // Enter: si no está entre los cargados, se busca en Chatwoot.
+    if (e.key === "Enter" && input.value.trim()) { $("searchInput").value = input.value.trim(); runSearch(); }
+  });
+  const seg = el("div", { class: "seg", style: "min-width:220px" },
+    ...[["all", "Todos"], ["analyzed", "Analizados"]].map(([id, label]) =>
+      el("button", { class: (state.clientsFilter || "all") === id ? "on" : "", onclick: () => { state.clientsFilter = id; renderClientsPage(); } }, label)));
+  renderMain(topbar(el("b", {}, "Clientes")), el("div", { class: "scroll" }, el("div", { class: "page" },
+    el("div", { class: "page-head" },
+      el("div", {}, el("h1", {}, "Clientes"), el("p", {}, "Contactos de Chatwoot. Los analizados ya tienen su historial reunido, con las notas de voz transcritas.")),
+      el("div", { style: "display:flex; gap:8px; align-items:center" }, seg,
+        el("button", { class: "btn primary", onclick: () => openNewContact(prefillFrom(state.clientsQuery || "")), title: "Para un cliente que no está en Chatwoot" }, icon("plus"), "Nuevo contacto"))),
+    el("div", { class: "table-tools" }, el("div", { class: "search" }, icon("search"), input)),
+    el("section", { class: "card" }, clientsRows()))));
+}
+
+function clientsRows() {
+  const q = (state.clientsQuery || "").trim().toLowerCase();
+  const analyzed = new Map(state.histories.map((m) => [m.contactId, m]));
+  const base = state.clientsFilter === "analyzed"
+    ? state.histories.map((m) => ({ id: m.contactId, name: m.name, phone: m.phone, lastActivityAt: m.generatedAt / 1000 }))
+    : state.allContacts;
+  const list = base.filter((c) => !q || (c.name || "").toLowerCase().includes(q) || (c.phone || "").includes(q));
+  const rows = list.map((c) => {
+    const h = analyzed.get(c.id);
+    return el("a", { class: "row", href: `#/c/${c.id}` },
+      el("span", { class: "avatar" + (h ? " brand" : "") }, initials(c.name)),
+      el("span", { style: "min-width:0" }, el("div", { class: "t" }, c.name || "Sin nombre"),
+        el("div", { class: "s" }, [c.phone, c.lastActivityAt ? `activo ${ago(c.lastActivityAt * 1000)}` : null].filter(Boolean).join(" · ") || `ID ${c.id}`)),
+      h ? el("span", { class: "status-pill ok" }, `Analizado · ${h.messages} mensajes`) : el("span", { class: "status-pill" }, "Sin analizar"));
+  });
+  const more = state.clientsFilter !== "analyzed" && state.allContacts.length < state.allTotal
+    ? el("button", { class: "btn small ghost more", onclick: () => loadAllContacts(state.allPage + 1) }, "Cargar más")
+    : null;
+  return el("div", { class: "rows", id: "clientsRows" },
+    ...(rows.length ? rows : [el("div", { class: "empty" }, state.allPage || state.clientsFilter === "analyzed" ? (q ? "Ningún contacto coincide. Presione Enter para buscar en Chatwoot o " : "Sin contactos.") : "Cargando…",
+      q ? el("a", { href: "#", onclick: (e) => { e.preventDefault(); openNewContact(prefillFrom(q)); } }, "créelo e importe su chat") : null, q ? "." : null)]),
+    more);
+}
+
+// ---------- página: Conversaciones IA ----------
+async function renderThreadsPage() {
+  setView("threads");
+  renderMain(topbar(el("b", {}, "Conversaciones IA")), el("div", { class: "scroll" }, spinnerBox()));
+  const threads = await api("/api/threads").catch((e) => ({ error: e.message }));
+  if (state.view !== "threads") return;
+  const input = el("input", { placeholder: "Buscar en las preguntas", autocomplete: "off" });
+  const rows = () => {
+    if (threads.error) return el("div", { class: "rows", id: "threadRows" }, el("div", { class: "empty" }, threads.error));
+    const q = input.value.trim().toLowerCase();
+    const list = threads.filter((t) => !q || `${t.firstQuestion} ${t.lastQuestion} ${t.name || ""}`.toLowerCase().includes(q));
+    return el("div", { class: "rows", id: "threadRows" }, ...(list.length ? list.map(threadRow) : [el("div", { class: "empty" }, q ? "Ninguna conversación coincide." : "Todavía no hay preguntas guardadas.")]));
+  };
+  input.addEventListener("input", () => $("threadRows").replaceWith(rows()));
+  renderMain(topbar(el("b", {}, "Conversaciones IA")), el("div", { class: "scroll" }, el("div", { class: "page" },
+    el("div", { class: "page-head" }, el("div", {}, el("h1", {}, "Conversaciones IA"), el("p", {}, "Todo lo que se le ha preguntado al asistente, de todos los clientes. Cada conversación queda guardada."))),
+    el("div", { class: "table-tools" }, el("div", { class: "search" }, icon("search"), input)),
+    el("section", { class: "card" }, rows()))));
+}
+
+function renderWelcome() {
+  $("chatPanel").replaceChildren();
+  $("app").classList.add("no-chat");
+  renderMain(
+    el("div", { class: "topbar" }, sideToggle(), el("div", { class: "crumbs" }, "Clientes")),
+    el("div", { class: "welcome" },
+      el("img", { src: "/assets/logo-hex.png", alt: "" }),
+      el("h2", {}, "Elija un cliente"),
+      el("p", {}, "Búsquelo por nombre, teléfono o número de conversación. Se reúne todo su historial de Chatwoot y WhatsApp, con las notas de voz transcritas, y después puede hacerle preguntas: qué se acordó, quién tiene razón en un reclamo, cómo fue la atención.")));
+}
+
+// ---------- cliente seleccionado ----------
+async function selectContact(contactId, threadId) {
+  setView("client");
+  // Mismo cliente ya abierto: solo cambia la conversación (p. ej. desde Conversaciones IA).
+  if (state.contactId === contactId && state.meta && threadId) {
+    if (state.threads.some((t) => t.id === threadId)) { state.threadId = threadId; state.tab = "ai"; renderClient(); }
+    return;
+  }
+  clearInterval(state.poll);
+  Object.assign(state, { contactId, meta: null, transcript: null, messages: [], threads: [], threadId: null, busy: false, rerender: false, tab: "ai", onlyWA: false, chatQuery: "", voiceQuery: "" });
+  renderContacts();
+  $("chatPanel").replaceChildren();
+  $("app").classList.add("no-chat");
+  renderMain(topbar(el("a", { href: "#/clientes", class: "crumb-link" }, "Clientes")), spinnerBox());
+  const data = await api(`/api/history/${contactId}`).catch((e) => ({ error: e.message }));
+  if (state.contactId !== contactId) return;
+  if (data.error) return renderMain(topbar(el("a", { href: "#/clientes", class: "crumb-link" }, "Clientes")), el("div", { class: "loading err" }, data.error));
+  if (!data.meta) return data.job?.state === "running" ? watchFirstBuild(contactId) : startFirstBuild(contactId);
+
+  state.meta = data.meta;
+  state.transcript = data.transcript;
+  const [threads, messages] = await Promise.all([
+    api(`/api/qa/${contactId}`).catch(() => []),
+    api(`/api/history/${contactId}/messages`).catch(() => []),
+  ]);
+  if (state.contactId !== contactId) return;
+  state.threads = threads;
+  state.messages = messages;
+  // La conversación pedida en la dirección o, si no, se retoma la última.
+  state.threadId = (threadId && threads.find((t) => t.id === threadId)?.id) || state.threads.at(-1)?.id || null;
+  renderClient();
+  if (data.job?.state === "running") watchSync(contactId);
+  else if (Date.now() - data.meta.generatedAt > AUTO_SYNC_MS) syncInBackground(contactId);
+}
+
+// Primera vez: todavía no hay nada que mostrar; solo el círculo de carga y "Analizando…".
+async function startFirstBuild(contactId) {
+  try {
+    await api(`/api/history/${contactId}/build`, { method: "POST" });
+    watchFirstBuild(contactId);
+  } catch (e) {
+    renderMain(topbar(el("a", { href: "#/clientes", class: "crumb-link" }, "Clientes")), el("div", { class: "loading err" }, e.message));
+  }
+}
+
+function watchFirstBuild(contactId) {
+  $("app").classList.add("no-chat");
+  $("chatPanel").replaceChildren();
+  renderMain(topbar(el("a", { href: "#/clientes", class: "crumb-link" }, "Clientes")), spinnerBox("Analizando…"));
+  pollBuild(contactId, () => {}, (job) => {
+    if (job.state === "done") selectContact(contactId);
+    else renderMain(topbar(el("a", { href: "#/clientes", class: "crumb-link" }, "Clientes")), el("div", { class: "loading err" }, `No se pudo analizar el chat${job.error ? `: ${job.error}` : "."}`));
+  });
+}
+
+function pollBuild(contactId, onProgress, onEnd) {
+  clearInterval(state.poll);
+  state.poll = setInterval(async () => {
+    if (state.contactId !== contactId) return clearInterval(state.poll);
+    const job = await api(`/api/history/${contactId}/build`).catch(() => null);
+    if (!job) return;
+    onProgress(job);
+    if (job.state === "running") return;
+    clearInterval(state.poll);
+    loadHistories();
+    loadUsage();
+    onEnd(job);
+  }, 1500);
+}
+
+// Actualizaciones: corren en segundo plano; la conversación y lo que se esté escribiendo no se tocan.
+async function syncInBackground(contactId) {
+  try {
+    await api(`/api/history/${contactId}/build`, { method: "POST" });
+    watchSync(contactId);
+  } catch (e) {
+    setSyncStatus(`No se pudo actualizar: ${e.message}`, true);
+  }
+}
+
+function watchSync(contactId) {
+  setSyncStatus("Actualizando…", false, true);
+  pollBuild(contactId, () => {}, async (job) => {
+    if (job.state !== "done") return setSyncStatus(`La actualización falló${job.error ? `: ${job.error}` : "."}`, true);
+    const [data, threads, messages] = await Promise.all([
+      api(`/api/history/${contactId}`).catch(() => null),
+      api(`/api/qa/${contactId}`).catch(() => null),
+      api(`/api/history/${contactId}/messages`).catch(() => null),
+    ]);
+    if (state.contactId !== contactId || !data?.meta) return;
+    state.meta = data.meta;
+    state.transcript = data.transcript;
+    if (threads) state.threads = threads;
+    if (messages) state.messages = messages;
+    // Si hay una respuesta en curso, se re-dibuja cuando termine.
+    if (state.busy) state.rerender = true;
+    else renderClient();
+  });
+}
+
+function setSyncStatus(text, error = false, busy = false) {
+  const box = $("syncStatus");
+  if (!box) return;
+  box.hidden = !text;
+  box.className = "banner " + (error ? "err" : "info");
+  box.replaceChildren(busy ? el("span", { class: "spinner" }) : icon(error ? "alert" : "refresh"), el("span", { class: "grow" }, text));
+}
+
+// ---------- vista del cliente ----------
+function renderClient() {
+  const m = state.meta;
+  const draft = $("question")?.value || ""; // lo que se estaba escribiendo sobrevive al re-dibujo
+  $("app").classList.remove("no-chat");
+  const recovered = m.recoveredFromWhatsApp || 0;
+  const hasWhatsApp = m.evolutionStatus === "ok" || recovered > 0 || !!m.fromExport;
+  const bannerKey = (k) => `${m.contactId}:${k}`;
+
+  const exportBtn = el("div", { class: "split" },
+    el("button", { class: "btn", onclick: downloadTranscript, title: "Descargar el historial como texto" }, icon("download"), el("span", { class: "lbl" }, "Exportar")),
+    el("button", { class: "btn", title: "Más formatos", onclick: (e) => { e.stopPropagation(); openMenu(e.currentTarget, [
+      { icon: "file", label: "Historial del chat (.txt)", action: downloadTranscript },
+      { icon: "thread", label: "Conversación con IA actual (.md)", action: downloadThread },
+    ]); } }, icon("chevron")));
+
+  const top = el("div", { class: "topbar" },
+    sideToggle(),
+    el("div", { class: "crumbs" }, el("a", { href: "#/clientes", class: "crumb-link" }, "Clientes"), "/", el("b", {}, m.name || "Sin nombre")),
+    el("div", { class: "actions" },
+      el("button", { class: "btn", onclick: () => syncInBackground(m.contactId), title: "Trae lo nuevo de Chatwoot y WhatsApp (solo transcribe audios nuevos)" }, icon("refresh"), el("span", { class: "lbl" }, "Actualizar")),
+      exportBtn,
+      el("button", { class: "icon-btn", title: "Más", onclick: (e) => { e.stopPropagation(); openMenu(e.currentTarget, [
+        { icon: "file", label: "Ver transcript completo", action: openTranscript },
+        { icon: "upload", label: "Importar chat de WhatsApp", action: openImport },
+      ]); } }, icon("more")),
+      el("button", { class: "icon-btn drawer-toggle chat", title: "Historial de chats", onclick: (e) => { e.stopPropagation(); $("app").classList.toggle("show-chat"); } }, icon("chat"))));
+
+  const banners = [];
+  if (m.importOnly && !state.dismissed.has(bannerKey("import"))) {
+    banners.push(el("div", { class: "banner info" }, icon("info"),
+      el("span", { class: "grow" }, "Chat importado desde WhatsApp: este cliente no tiene conversaciones en Chatwoot. Para sumar mensajes nuevos, vuelva a importar el chat."),
+      el("button", { class: "link", onclick: openImport }, "Importar de nuevo"),
+      el("button", { class: "x", title: "Ocultar", onclick: () => { state.dismissed.add(bannerKey("import")); renderClient(); } }, icon("x"))));
+  } else if (recovered && !state.dismissed.has(bannerKey("wa"))) {
+    banners.push(el("div", { class: "banner info" }, icon("info"),
+      el("span", { class: "grow" }, el("b", {}, `${recovered} mensaje(s)`), " están en WhatsApp pero nunca llegaron a Chatwoot; se recuperaron y figuran como ", el("code", { class: "wa" }, "solo en WhatsApp"), "."),
+      el("button", { class: "link", onclick: (e) => { e.stopPropagation(); state.onlyWA = true; renderChatPanel(); $("app").classList.add("show-chat"); } }, "Ver mensajes"),
+      el("button", { class: "x", title: "Ocultar", onclick: () => { state.dismissed.add(bannerKey("wa")); renderClient(); } }, icon("x"))));
+  }
+  if (m.evolutionStatus && !["ok", "disabled"].includes(m.evolutionStatus)) {
+    banners.push(el("div", { class: "banner err" }, icon("alert"), el("span", { class: "grow" }, `No se pudo comparar con WhatsApp: ${m.evolutionStatus}`)));
+  }
+  if (missingAudios(m)) {
+    banners.push(el("div", { class: "banner warn" }, icon("alert"), el("span", { class: "grow" },
+      `${missingAudios(m)} nota(s) de voz sin transcribir` + (m.quotaMessage ? `: ${m.quotaMessage}` : ".") + ' "Actualizar" reintenta solo esas.')));
+  }
+  if (m.expiredAudios) {
+    banners.push(el("div", { class: "banner warn" }, icon("alert"),
+      el("span", { class: "grow" }, `${m.expiredAudios} nota(s) de voz ya no se pueden descargar de WhatsApp.`),
+      el("button", { class: "link", onclick: openImport }, "Importar chat del teléfono")));
+  }
+
+  const header = el("section", { class: "client" },
+    el("div", { class: "client-top" },
+      el("span", { class: "avatar brand" }, initials(m.name)),
+      el("div", { style: "min-width:0" },
+        el("div", {}, el("h1", {}, m.name || "Sin nombre"), m.phone ? el("span", { class: "phone" }, m.phone) : null),
+        el("div", { class: "stats" },
+          el("span", {}, el("b", {}, m.conversations), m.conversations === 1 ? " conversación" : " conversaciones"),
+          el("span", {}, el("b", {}, m.messages), " mensajes"),
+          el("span", {}, el("b", {}, m.audios), " notas de voz"),
+          el("span", {}, el("i", { class: "dot" }), `actualizado ${ago(m.generatedAt)}`))),
+      el("div", { class: "tags" }, hasWhatsApp ? el("span", { class: "tag wa" }, "WhatsApp") : null, el("span", { class: "tag cw" }, "Chatwoot"))),
+    ...banners,
+    el("div", { id: "syncStatus", class: "banner info", hidden: true }));
+
+  const tab = (id, label, n) => el("button", { class: "tab" + (state.tab === id ? " on" : ""), onclick: () => { state.tab = id; renderClient(); } }, label, el("span", { class: "pill" }, n));
+  const tabs = el("div", { class: "tabs" }, tab("ai", "Análisis IA", questionCount()), tab("metrics", "Métricas de atención", 4), tab("voice", "Notas de voz", m.audios));
+
+  const body = state.tab === "metrics" ? renderMetrics() : state.tab === "voice" ? renderVoiceNotes() : renderAnalysis();
+  const parts = [top, el("div", { class: "scroll", id: "paneScroll" }, header, tabs, body)];
+  if (state.tab === "ai") parts.push(renderComposer(draft));
+  renderMain(...parts);
+  renderChatPanel();
+
+  if (state.tab === "ai") {
+    const scroll = $("paneScroll");
+    scroll.scrollTop = scroll.scrollHeight;
+    $("question")?.focus();
+  }
+}
+
+// ---------- pestaña: análisis IA ----------
+function threadPicker() {
+  const thread = currentThread();
+  const questions = thread?.messages.filter((m) => m.role === "user").length ?? 0;
+  const first = thread?.messages.find((m) => m.role === "user")?.text;
+  return el("button", { class: "thread-pick", id: "threadPicker", title: "Conversaciones guardadas con este cliente", onclick: (e) => { e.stopPropagation(); openThreadMenu(e.currentTarget); } },
+    icon("thread"),
+    thread && first ? [el("span", { class: "d" }, shortDate(thread.createdAt)), el("span", { class: "t" }, first)] : el("span", { class: "t" }, "Conversación nueva"),
+    questions ? el("span", { class: "pill" }, questions) : null,
+    icon("chevron"));
+}
+
+function renderAnalysis() {
+  const pane = el("div", { class: "pane" },
+    el("div", { class: "thread-bar" }, threadPicker(),
+      el("button", { class: "btn ghost", onclick: newThread, title: "Empieza otra conversación; la actual queda guardada en el menú" }, icon("plus"), "Nueva conversación")));
+
+  const list = el("div", { class: "qa-list", id: "qaList" });
+  const messages = currentThread()?.messages ?? [];
+  if (!messages.some((m) => m.role === "user")) {
+    list.append(el("div", { class: "empty", style: "padding:18px 2px" }, "Pregunte lo que quiera sobre este cliente o use uno de los atajos de abajo. Todo queda guardado en esta conversación."));
+  }
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.role === "event") { list.append(el("div", { class: "event" }, `${shortDate(m.at)} · ${m.text}`)); continue; }
+    if (m.role !== "user") continue;
+    const answer = messages[i + 1]?.role === "model" ? messages[i + 1] : null;
+    list.append(questionBubble(m.text, m.at), answerCard(m.text, answer));
+    if (answer) i++;
+  }
+  pane.append(list);
+  return pane;
+}
+
+// ---------- fechas citadas → enlace al mensaje ----------
+const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const CLOCK = String.raw`(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s?m\b\.?)?`;
+// [2025-08-04 15:59], 2025-08-04 a las 3:59 p. m., 2025-08-04 · 4 de agosto (de 2025) a las 15:59
+const STAMP_RE = new RegExp(
+  String.raw`\[?(\d{4})-(\d{2})-(\d{2})(?:(?:[ T]|,\s*|\s+a\s+las?\s+)${CLOCK})?\]?` +
+  String.raw`|\b(\d{1,2})\s+de\s+(${MONTHS.join("|")}|setiembre)(?:\s+(?:de|del)\s+(\d{4}))?(?:,?\s+(?:a|hacia)\s+las?\s+${CLOCK})?` +
+  // [12:15] suelto: la hora de un mensaje del último día citado antes en la misma respuesta.
+  String.raw`|\[(\d{1,2}):(\d{2})\]`, "gi");
+
+let keyCache = { src: null, keys: [], days: new Set() };
+function messageKeys() {
+  if (keyCache.src !== state.messages) {
+    const keys = state.messages.map((m) => minuteKey(m.at));
+    keyCache = { src: state.messages, keys, minutes: new Set(keys), days: new Set(keys.map((k) => k.slice(0, 10))) };
+  }
+  return keyCache;
+}
+
+const pad = (n) => String(n).padStart(2, "0");
+function clock(h, min, ap) {
+  let hour = Number(h);
+  if (ap?.toLowerCase() === "p" && hour < 12) hour += 12;
+  if (ap?.toLowerCase() === "a" && hour === 12) hour = 0;
+  return hour < 24 && Number(min) < 60 ? `${pad(hour)}:${min}` : null;
+}
+
+/** De un match de STAMP_RE, el día y la hora (si la hay) de un mensaje del historial; null si no hay mensajes ese día. */
+function stampTarget(g, recentDays) {
+  const { days, minutes } = messageKeys();
+  if (g[13]) {
+    // Hora suelta: solo si ese minuto existe en alguno de los días citados antes (el más reciente primero).
+    const time = clock(g[13], g[14]);
+    const day = time && recentDays.find((d) => minutes.has(`${d} ${time}`));
+    return day ? { day, time } : null;
+  }
+  if (g[1]) {
+    const day = `${g[1]}-${g[2]}-${g[3]}`;
+    return days.has(day) ? { day, time: g[4] ? clock(g[4], g[5], g[6]) : null } : null;
+  }
+  const md = `${pad(g[8].toLowerCase() === "setiembre" ? 9 : MONTHS.indexOf(g[8].toLowerCase()) + 1)}-${pad(g[7])}`;
+  // Sin año ("4 de agosto"): el año más reciente en que hubo mensajes ese día.
+  const day = g[9] ? `${g[9]}-${md}` : [...days].filter((d) => d.endsWith(md)).sort().pop();
+  return day && days.has(day) ? { day, time: g[10] ? clock(g[10], g[11], g[12]) : null } : null;
+}
+
+function linkifyStamps(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) if (!walker.currentNode.parentElement.closest(".ts-link")) nodes.push(walker.currentNode);
+  const recentDays = [];
+  for (const node of nodes) {
+    const text = node.nodeValue;
+    const parts = [];
+    let last = 0;
+    for (const g of text.matchAll(STAMP_RE)) {
+      const target = stampTarget(g, recentDays);
+      if (!target) continue;
+      if (recentDays[0] !== target.day) recentDays.unshift(target.day);
+      parts.push(text.slice(last, g.index), el("span", { class: "ts-link", role: "link", tabindex: 0, "data-day": target.day, "data-time": target.time,
+        title: `Ir al mensaje del ${target.day}${target.time ? " " + target.time : ""} en el historial` }, g[0]));
+      last = g.index + g[0].length;
+    }
+    if (parts.length) node.replaceWith(...parts, text.slice(last));
+  }
+}
+
+function renderAnswerText(body, text) {
+  body.innerHTML = text ? marked.parse(text) : "";
+  linkifyStamps(body);
+}
+
+/** Abre el historial en el mensaje (o los mensajes) de ese minuto; si no hay ninguno exacto, en el más cercano. */
+function jumpToStamp(day, time) {
+  const { keys } = messageKeys();
+  if (!keys.length) return;
+  const want = `${day} ${time || "00:00"}`;
+  const toMin = (k) => Date.parse(k.replace(" ", "T") + ":00Z") / 60000;
+  let target = time && keys.includes(want) ? want : !time ? keys.find((k) => k.startsWith(day)) : null;
+  if (!target) target = keys.reduce((best, k) => (Math.abs(toMin(k) - toMin(want)) < Math.abs(toMin(best) - toMin(want)) ? k : best));
+  const find = () => [...$("chatList").querySelectorAll(`.cmsg[data-min="${target}"]`)];
+  let found = find();
+  if (!found.length && (state.onlyWA || state.chatQuery)) {
+    // Un filtro del panel esconde el mensaje: quitarlo antes de saltar.
+    state.onlyWA = false; state.chatQuery = "";
+    renderChatPanel();
+    found = find();
+  }
+  if (!found.length) return;
+  $("app").classList.add("show-chat");
+  // Desplazar solo la lista (scrollIntoView movería también el panel central y cancela el desplazamiento suave).
+  const list = $("chatList");
+  const box = found[0].getBoundingClientRect(), view = list.getBoundingClientRect();
+  const delta = box.top - view.top - (list.clientHeight - box.height) / 2;
+  // Saltos largos (meses de historial) de una vez; solo los cortos con animación.
+  list.scrollTo({ top: list.scrollTop + delta, behavior: Math.abs(delta) > list.clientHeight * 2 ? "instant" : "smooth" });
+  for (const n of found) { n.classList.remove("flash"); void n.offsetWidth; n.classList.add("flash"); }
+}
+document.addEventListener("click", (e) => {
+  const link = e.target.closest?.(".ts-link");
+  if (link) jumpToStamp(link.dataset.day, link.dataset.time);
+});
+document.addEventListener("keydown", (e) => {
+  const link = e.target.closest?.(".ts-link");
+  if (link && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); jumpToStamp(link.dataset.day, link.dataset.time); }
+});
+
+function questionBubble(text, at) {
+  return el("div", { class: "q-row" },
+    el("div", { class: "q-meta" }, "Usted", at ? ` · ${shortDate(at)}` : ""),
+    el("div", { class: "q-bubble" }, text));
+}
+
+/** Nombre del modelo para mostrar ("openai:gpt-5-mini" → "gpt-5-mini"). */
+const modelName = (key) => (key && key.includes(":") ? key.slice(key.indexOf(":") + 1) : key || "");
+
+/** "Respondido por X · fecha". Los modelos que fallaron antes quedan en el tooltip, no en la tarjeta. */
+function answeredBy(model, at, notes = []) {
+  return el("span", { title: notes.length ? `Antes no respondieron:\n${notes.join("\n")}` : null }, `Respondido por ${modelName(model)} · ${shortDate(at)}`);
+}
+
+function answerCard(question, saved) {
+  const body = el("div", { class: "answer-body" });
+  const foot = el("div", { class: "answer-foot" });
+  const card = el("div", { class: "answer" + (saved?.error ? " err" : "") },
+    el("div", { class: "answer-head" }, el("img", { class: "logo", src: "/assets/logo-hex.png", alt: "" }), el("b", {}, "Análisis")),
+    body, foot);
+  if (saved) {
+    renderAnswerText(body, saved.text || "");
+    if (saved.model) foot.append(answeredBy(saved.model, saved.at, saved.notes));
+    if (saved.error) foot.append(retryButton(question));
+  } else {
+    body.append(el("span", { class: "typing" }, "Sin respuesta guardada."));
+    foot.append(retryButton(question));
+  }
+  return card;
+}
+
+/** Las caídas de Google suelen durar minutos: reenviar la misma pregunta sin tener que reescribirla. */
+function retryButton(question) {
+  return el("button", { class: "btn small", onclick: () => ask(question), title: "Vuelve a enviar la misma pregunta" }, icon("refresh"), "Reintentar");
+}
+
+function openThreadMenu(anchor) {
+  const withQuestions = state.threads.filter((t) => t.messages.some((m) => m.role === "user")).slice().reverse();
+  const items = withQuestions.map((t) => {
+    const first = t.messages.find((m) => m.role === "user").text;
+    return { label: `${shortDate(t.createdAt)} · ${first.length > 48 ? first.slice(0, 48) + "…" : first}`, meta: t.messages.filter((m) => m.role === "user").length,
+      on: t.id === state.threadId, action: () => { state.threadId = t.id; renderClient(); } };
+  });
+  openMenu(anchor, [...items, ...(items.length ? ["sep"] : []), { icon: "plus", label: "Nueva conversación", action: newThread }]);
+}
+
+async function newThread() {
+  if (state.busy) return;
+  const thread = await api(`/api/qa/${state.contactId}/threads`, { method: "POST" });
+  state.threads.push(thread);
+  state.threadId = thread.id;
+  state.tab = "ai";
+  renderClient();
+}
+
+function renderComposer(draft) {
+  const input = el("textarea", { id: "question", rows: 1, placeholder: "Pregunte lo que quiera sobre este cliente…" });
+  input.value = draft;
+  input.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); ask(input.value); } });
+  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; });
+  const modelBtn = el("button", { class: "model-pick", title: "Modelo que responde (Automático: el mejor disponible, con respaldos)", onclick: (e) => { e.stopPropagation(); openModelMenu(e.currentTarget); } },
+    el("i", { class: "dot" }), state.model ? state.modelLabels[state.model] || modelName(state.model) : "Automático", icon("chevron"));
+  return el("div", { class: "composer-wrap" },
+    el("div", { class: "chips" }, CHIPS.map(([label, prompt]) => el("button", { class: "chip", onclick: () => ask(prompt), title: prompt }, label))),
+    el("div", { class: "composer" }, input,
+      el("div", { class: "composer-row" },
+        el("button", { class: "icon-btn bare", title: "Importar chat de WhatsApp", onclick: openImport }, icon("clip")),
+        modelBtn,
+        el("span", { class: "kbd-hint" }, "Enter envía · Shift+Enter nueva línea"),
+        el("button", { class: "btn primary", id: "sendBtn", onclick: () => ask(input.value) }, "Preguntar", icon("arrow")))),
+    el("div", { class: "saved-note" }, "Todo lo que pregunte queda guardado."));
+}
+
+async function openModelMenu(anchor) {
+  if (!state.models.length) {
+    const r = await api("/api/models").catch(() => ({ chain: [], labels: {} }));
+    state.models = r.chain;
+    state.modelLabels = r.labels || {};
+  }
+  openMenu(anchor, [
+    { label: "Automático", meta: "con respaldos", on: !state.model, action: () => { state.model = ""; renderClient(); } },
+    "sep",
+    ...state.models.map((m) => ({
+      label: state.modelLabels[m] || modelName(m),
+      meta: m.includes(":") ? m.slice(0, m.indexOf(":")) : "gemini",
+      on: state.model === m,
+      action: () => { state.model = m; renderClient(); },
+    })),
+  ]);
+}
+
+async function ask(text) {
+  const question = String(text || "").trim();
+  if (!question || state.busy) return;
+  if (state.tab !== "ai") { state.tab = "ai"; renderClient(); }
+  state.busy = true;
+  const contactId = state.contactId;
+  const input = $("question"), send = $("sendBtn"), scroll = $("paneScroll"), list = $("qaList");
+  input.value = ""; input.style.height = "auto";
+  send.disabled = true;
+  send.replaceChildren(el("span", { class: "spinner" }), "Analizando…");
+  list.querySelector(".empty")?.remove();
+
+  // Mientras no llega texto: solo el círculo de carga y "Analizando…". La tarjeta aparece con la respuesta.
+  const waiting = el("div", { class: "analyzing" }, el("span", { class: "spinner" }), "Analizando…");
+  list.append(questionBubble(question, new Date().toISOString()), waiting);
+  scroll.scrollTop = scroll.scrollHeight;
+
+  let card = null, body = null, footer = null;
+  let full = "";
+  const notes = [];
+  const showCard = () => {
+    if (card) return;
+    card = answerCard(question, { text: "" });
+    body = card.querySelector(".answer-body");
+    footer = card.querySelector(".answer-foot");
+    footer.replaceChildren();
+    waiting.replaceWith(card);
+  };
+  const render = () => {
+    const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 120;
+    renderAnswerText(body, full);
+    if (nearBottom) scroll.scrollTop = scroll.scrollHeight;
+  };
+  const handle = (ev) => {
+    if (ev.type === "delta") { showCard(); full += ev.text; render(); }
+    else if (ev.type === "retry") {
+      notes.push(`${modelName(ev.failed)}: ${ev.reason}`);
+      // Otro modelo empieza de cero: se descarta lo que alcanzó a escribir el anterior.
+      if (ev.discardPartial && card) { full = ""; card.replaceWith(waiting); card = null; }
+    } else if (ev.type === "done") { showCard(); footer.replaceChildren(answeredBy(ev.model, Date.now(), notes)); }
+    else if (ev.type === "error") throw new Error(ev.message);
+  };
+  try {
+    if (!currentThread()) {
+      const created = await api(`/api/qa/${contactId}/threads`, { method: "POST" });
+      state.threads.push(created);
+      state.threadId = created.id;
+    }
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contactId, threadId: state.threadId, question, model: state.model || undefined }),
+    });
+    if (res.status === 401) toLogin();
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
+    // NDJSON: un evento por línea; una línea puede llegar partida entre dos lecturas.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) if (line.trim()) handle(JSON.parse(line));
+    }
+    if (buffer.trim()) handle(JSON.parse(buffer));
+    if (!full.trim()) { showCard(); body.textContent = "[El modelo no devolvió respuesta]"; }
+  } catch (e) {
+    showCard();
+    card.classList.add("err");
+    body.textContent = e.message;
+    footer.replaceChildren(retryButton(question));
+  } finally {
+    // Lo guardado en el servidor es la fuente de verdad: se relee para quedar sincronizados.
+    if (state.contactId === contactId) state.threads = await api(`/api/qa/${contactId}`).catch(() => state.threads);
+    loadUsage();
+    state.busy = false;
+    if (state.contactId === contactId) {
+      if (state.rerender) { state.rerender = false; renderClient(); }
+      else {
+        send.disabled = false;
+        send.replaceChildren("Preguntar", icon("arrow"));
+        $("threadPicker")?.replaceWith(threadPicker());
+        const pill = document.querySelector(".tab .pill");
+        if (pill) pill.textContent = questionCount();
+        input.focus();
+      }
+    }
+  }
+}
+
+// ---------- pestaña: métricas ----------
+/** "2 h 15 min", "3 d 4 h"... (mismo formato que las métricas del transcript). */
+function duration(seconds) {
+  const min = Math.round(seconds / 60);
+  if (min < 1) return "<1 min";
+  if (min < 60) return min + " min";
+  const h = Math.floor(min / 60);
+  if (h < 24) return min % 60 ? h + " h " + (min % 60) + " min" : h + " h";
+  const d = Math.floor(h / 24);
+  return h % 24 ? d + " d " + (h % 24) + " h" : d + " d";
+}
+const pctile = (sorted, p) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : null);
+const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const partsFmt = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short", hour: "numeric", hourCycle: "h23" });
+const EN_DAYS = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+
+/**
+ * Tiempos de respuesta con las fechas reales (corren 24/7). Respuesta del equipo: desde el primer mensaje
+ * del cliente sin responder hasta el siguiente del equipo; del cliente, al revés. Las notas internas no cuentan.
+ */
+function attentionStats(messages) {
+  const list = messages.filter((m) => m.role !== "internal");
+  const isTeam = (m) => m.role === "agent" || m.role === "bot";
+  const teamTimes = [], clientTimes = [], waits = [];
+  const agents = new Map();
+  let pendingClient = null, pendingTeam = null;
+  for (const m of list) {
+    if (m.role === "client") {
+      if (!pendingClient) pendingClient = m;
+      if (pendingTeam) { clientTimes.push(m.at - pendingTeam.at); pendingTeam = null; }
+    } else if (isTeam(m)) {
+      const name = m.name && m.name !== "WhatsApp" ? m.name : m.role === "bot" ? "Bot" : "Agente";
+      const a = agents.get(name) || { messages: 0, times: [] };
+      a.messages++;
+      if (pendingClient) {
+        const t = m.at - pendingClient.at;
+        teamTimes.push(t);
+        a.times.push(t);
+        waits.push({ seconds: t, from: pendingClient, reply: m });
+        pendingClient = null;
+      }
+      if (!pendingTeam) pendingTeam = m;
+      agents.set(name, a);
+    }
+  }
+  const sort = (x) => [...x].sort((a, b) => a - b);
+  return {
+    list,
+    team: list.filter(isTeam).length,
+    client: list.filter((m) => m.role === "client").length,
+    teamTimes: sort(teamTimes),
+    clientTimes: sort(clientTimes),
+    waits: waits.sort((a, b) => b.seconds - a.seconds),
+    open: pendingClient, // mensaje del cliente que sigue sin respuesta
+    agents,
+  };
+}
+
+function stampLink(epoch) {
+  const key = minuteKey(epoch);
+  return el("span", { class: "ts-link", role: "link", tabindex: 0, "data-day": key.slice(0, 10), "data-time": key.slice(11), title: "Ir al mensaje en el historial" }, "[" + key + "]");
+}
+
+function activityChart(st) {
+  const days = new Map();
+  for (const m of st.list) {
+    const d = dayLabel(m.at);
+    const row = days.get(d) || { team: 0, client: 0 };
+    if (m.role === "client") row.client++; else row.team++;
+    days.set(d, row);
+  }
+  if (!days.size) return el("div", { class: "empty" }, "Sin mensajes.");
+  // Todos los días del período, también los que no tuvieron mensajes.
+  const first = new Date(dayLabel(st.list[0].at) + "T12:00:00Z"), last = new Date(dayLabel(st.list.at(-1).at) + "T12:00:00Z");
+  const all = [];
+  for (let t = first.getTime(); t <= last.getTime(); t += 86400000) all.push(new Date(t).toISOString().slice(0, 10));
+  const max = Math.max(...all.map((d) => (days.get(d)?.team || 0) + (days.get(d)?.client || 0)), 1);
+  const W = 1000, H = 160, bw = W / all.length;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  svg.setAttribute("preserveAspectRatio", "none");
+  all.forEach((d, i) => {
+    const row = days.get(d) || { team: 0, client: 0 };
+    const hc = (row.client / max) * (H - 4), ht = (row.team / max) * (H - 4);
+    const g = document.createElementNS(NS, "g");
+    const title = document.createElementNS(NS, "title");
+    title.textContent = d + ": " + row.team + " del equipo · " + row.client + " del cliente";
+    g.append(title);
+    for (const [y, h, color] of [[H - hc, hc, "var(--green)"], [H - hc - ht, ht, "var(--brand-ink)"]]) {
+      if (!h) continue;
+      const r = document.createElementNS(NS, "rect");
+      r.setAttribute("x", String(i * bw + bw * 0.12));
+      r.setAttribute("width", String(Math.max(bw * 0.76, 1)));
+      r.setAttribute("y", String(y));
+      r.setAttribute("height", String(h));
+      r.setAttribute("fill", color);
+      r.setAttribute("rx", "1.5");
+      g.append(r);
+    }
+    // Área invisible para que el tooltip funcione en todo el alto de la columna.
+    const hit = document.createElementNS(NS, "rect");
+    hit.setAttribute("x", String(i * bw));
+    hit.setAttribute("width", String(bw));
+    hit.setAttribute("y", "0");
+    hit.setAttribute("height", String(H));
+    hit.setAttribute("fill", "transparent");
+    g.append(hit);
+    svg.append(g);
+  });
+  const mid = all[Math.floor(all.length / 2)];
+  return el("div", { class: "chart" }, svg, el("div", { class: "axis" }, el("span", {}, all[0]), el("span", {}, mid), el("span", {}, all.at(-1))));
+}
+
+const BUCKETS = [[300, "< 5 min"], [1800, "5–30 min"], [7200, "30 min–2 h"], [28800, "2–8 h"], [86400, "8–24 h"], [Infinity, "> 24 h"]];
+function bucketsView(st) {
+  const count = (times) => BUCKETS.map(([limit], i) => times.filter((t) => t < limit && (i === 0 || t >= BUCKETS[i - 1][0])).length);
+  const team = count(st.teamTimes), client = count(st.clientTimes);
+  const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
+  return el("div", { class: "buckets" }, ...BUCKETS.map(([, label], i) => el("div", { class: "bucket" },
+    el("span", {}, label),
+    el("div", { class: "bars" },
+      el("div", { class: "bar-row", title: team[i] + " respuestas del equipo" }, el("i", { style: "width:" + pct(team[i], st.teamTimes.length) * 0.9 + "%; background:var(--brand-ink)" }), pct(team[i], st.teamTimes.length) + "%"),
+      el("div", { class: "bar-row", title: client[i] + " respuestas del cliente" }, el("i", { style: "width:" + pct(client[i], st.clientTimes.length) * 0.9 + "%; background:var(--green)" }), pct(client[i], st.clientTimes.length) + "%")))));
+}
+
+function heatmap(st, who) {
+  const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
+  for (const m of st.list) {
+    if (who === "client" && m.role !== "client") continue;
+    if (who === "team" && m.role === "client") continue;
+    const parts = Object.fromEntries(partsFmt.formatToParts(new Date(m.at * 1000)).map((x) => [x.type, x.value]));
+    grid[EN_DAYS[parts.weekday] ?? 0][Number(parts.hour) % 24]++;
+  }
+  const max = Math.max(1, ...grid.flat());
+  const color = who === "client" ? "62, 207, 142" : "143, 176, 234";
+  const cells = [el("span")];
+  for (let h = 0; h < 24; h++) cells.push(el("span", { class: "h" }, h % 6 === 0 ? String(h) : ""));
+  grid.forEach((row, d) => {
+    cells.push(el("span", {}, WEEKDAYS[d]));
+    row.forEach((n, h) => cells.push(el("span", { class: "c", title: WEEKDAYS[d] + " " + String(h).padStart(2, "0") + ":00 · " + n + " mensaje" + (n === 1 ? "" : "s"),
+      style: n ? "background: rgba(" + color + ", " + (0.15 + 0.85 * (n / max)).toFixed(2) + ")" : "" })));
+  });
+  return el("div", { class: "heat", id: "heatmap" }, ...cells);
+}
+
+function renderMetrics() {
+  const st = attentionStats(state.messages);
+  if (!st.list.length) return el("div", { class: "pane" }, el("div", { class: "empty" }, "Sin mensajes para medir."));
+  const median = (x) => pctile(x, 0.5), p90 = (x) => pctile(x, 0.9);
+  const total = st.team + st.client;
+  const longWaits = st.teamTimes.filter((t) => t > 86400).length;
+  const kpi = (label, value, sub, cls = "") => el("div", { class: "kpi " + cls }, el("div", { class: "l" }, label), el("div", { class: "v" }, value), el("div", { class: "s" }, sub));
+
+  const heatSeg = el("div", { class: "seg mini" }, ...[["all", "Todos"], ["client", "Cliente"], ["team", "Equipo"]].map(([id, label]) =>
+    el("button", { class: (state.heatWho || "all") === id ? "on" : "", onclick: (e) => {
+      state.heatWho = id;
+      e.currentTarget.parentElement.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === e.currentTarget));
+      $("heatmap").replaceWith(heatmap(st, id));
+    } }, label)));
+
+  const waits = st.waits.slice(0, 5).map((w) => el("div", { class: "wait" },
+    el("div", { class: "d" }, duration(w.seconds)),
+    el("div", { style: "min-width:0" },
+      el("div", { class: "t" }, "Escribió ", stampLink(w.from.at), " · le respondieron ", stampLink(w.reply.at)),
+      el("div", { class: "q", title: w.from.text }, w.from.text.replace(/^\(nota de voz\)\s*/, "🎤 ")))));
+  // Un mensaje del cliente sin responder solo cuenta como espera si es reciente; si no, es el cierre del chat.
+  if (st.open && Date.now() / 1000 - st.open.at < 7 * 86400) {
+    waits.unshift(el("div", { class: "wait" },
+      el("div", { class: "d", style: "color:var(--red)" }, duration(Date.now() / 1000 - st.open.at)),
+      el("div", { style: "min-width:0" }, el("div", { class: "t" }, "Sigue sin respuesta desde ", stampLink(st.open.at)), el("div", { class: "q", title: st.open.text }, st.open.text))));
+  }
+
+  const agents = [...st.agents].sort((a, b) => b[1].messages - a[1].messages).map(([name, a]) => {
+    const t = [...a.times].sort((x, y) => x - y);
+    return el("tr", {}, el("td", {}, name), el("td", {}, a.messages), el("td", {}, t.length ? duration(median(t)) : "—"), el("td", {}, t.length ? duration(p90(t)) : "—"), el("td", {}, t.length));
+  });
+
+  return el("div", { class: "pane" },
+    el("div", { class: "kpis" },
+      kpi("Respuesta del equipo", st.teamTimes.length ? duration(median(st.teamTimes)) : "—", st.teamTimes.length ? "mediana · p90 " + duration(p90(st.teamTimes)) + " · " + st.teamTimes.length + " respuestas" : "sin respuestas", st.teamTimes.length && median(st.teamTimes) <= 1800 ? "good" : ""),
+      kpi("Respuesta del cliente", st.clientTimes.length ? duration(median(st.clientTimes)) : "—", st.clientTimes.length ? "mediana · p90 " + duration(p90(st.clientTimes)) + " · " + st.clientTimes.length + " respuestas" : "sin respuestas"),
+      kpi("Mensajes", total.toLocaleString("es-CO"), "equipo " + Math.round((st.team / total) * 100) + "% · cliente " + Math.round((st.client / total) * 100) + "%"),
+      kpi("Esperas de más de 24 h", longWaits, longWaits ? "el cliente esperó más de un día " + longWaits + (longWaits === 1 ? " vez" : " veces") : "ninguna", longWaits ? "warn" : "good")),
+    el("section", { class: "mcard" },
+      el("div", { class: "mcard-head" },
+        el("div", {}, el("h4", {}, "Actividad por día"), el("div", { class: "sub" }, dayLabel(st.list[0].at) + " → " + dayLabel(st.list.at(-1).at))),
+        el("div", { class: "legend-inline" }, el("span", {}, el("i", { style: "background:var(--brand-ink)" }), "Equipo"), el("span", {}, el("i", { style: "background:var(--green)" }), "Cliente"))),
+      activityChart(st)),
+    el("div", { class: "mgrid" },
+      el("section", { class: "mcard" },
+        el("div", { class: "mcard-head" }, el("div", {}, el("h4", {}, "Tiempos de respuesta"), el("div", { class: "sub" }, "Qué tan rápido responde cada lado")),
+          el("div", { class: "legend-inline" }, el("span", {}, el("i", { style: "background:var(--brand-ink)" }), "Equipo"), el("span", {}, el("i", { style: "background:var(--green)" }), "Cliente"))),
+        bucketsView(st)),
+      el("section", { class: "mcard" },
+        el("div", { class: "mcard-head" }, el("div", {}, el("h4", {}, "Cuándo escribe cada uno"), el("div", { class: "sub" }, "Mensajes por día y hora (Colombia)")), heatSeg),
+        heatmap(st, state.heatWho || "all"))),
+    el("div", { class: "mgrid" },
+      el("section", { class: "mcard" },
+        el("div", { class: "mcard-head" }, el("div", {}, el("h4", {}, "Esperas más largas del cliente"), el("div", { class: "sub" }, "Haga clic en una fecha para ir al mensaje"))),
+        el("div", { class: "waits" }, waits.length ? waits : el("div", { class: "empty" }, "Sin esperas registradas."))),
+      el("section", { class: "mcard" },
+        el("div", { class: "mcard-head" }, el("div", {}, el("h4", {}, "Por persona del equipo"), el("div", { class: "sub" }, "Mensajes y tiempos de respuesta de cada quien"))),
+        el("table", { class: "agents" }, el("thead", {}, el("tr", {}, el("th", {}, "Quién"), el("th", {}, "Mensajes"), el("th", {}, "Mediana"), el("th", {}, "p90"), el("th", {}, "Respuestas"))), el("tbody", {}, ...agents)))),
+    el("div", { class: "footnote" }, "Calculadas con las fechas reales de los mensajes. Los tiempos corren 24/7: no descuentan noches, fines de semana ni horario de atención. Las notas internas no cuentan."));
+}
+
+// ---------- pestaña: notas de voz ----------
+function voiceList() {
+  const q = state.voiceQuery.trim().toLowerCase();
+  const items = state.messages.filter((m) => m.kind === "audio" && (!q || m.text.toLowerCase().includes(q) || (m.name || "").toLowerCase().includes(q)));
+  return el("div", { class: "voice-list", id: "voiceList" }, items.length
+    ? items.slice().reverse().map((m) => el("div", { class: "voice" },
+      el("div", { class: "who" },
+        el("span", { class: "avatar " + (m.role === "client" ? "green" : "brand"), style: "width:22px;height:22px;font-size:9.5px" }, initials(m.name)),
+        el("b", {}, m.name || (m.role === "client" ? "Cliente" : "Agente")),
+        el("span", { class: "mono", style: "color:var(--muted);font-size:11.5px" }, shortDate(m.at * 1000)),
+        m.onlyWhatsApp ? el("span", { class: "badge-wa" }, "solo WA") : null),
+      playable(m) ? player(m.audioKey) : null,
+      el("div", { class: "text" }, m.text.replace(/^\(nota de voz\)\s*/, ""))))
+    : el("div", { class: "empty" }, q ? "Ninguna nota de voz coincide." : "Este cliente no tiene notas de voz."));
+}
+
+function renderVoiceNotes() {
+  const input = el("input", { placeholder: "Buscar en las transcripciones…", value: state.voiceQuery });
+  input.addEventListener("input", () => { state.voiceQuery = input.value; $("voiceList").replaceWith(voiceList()); });
+  return el("div", { class: "pane" }, el("div", { class: "pane-search" }, el("div", { class: "search" }, icon("search"), input)), voiceList());
+}
+
+// ---------- reproductor de notas de voz ----------
+let activeAudio = null;
+function player(key) {
+  const fill = el("i");
+  const time = el("time", {}, "");
+  const btn = el("button", { title: "Reproducir" }, icon("play"));
+  const track = el("span", { class: "track" }, fill);
+  const box = el("div", { class: "player" }, btn, track, time);
+  const contactId = state.contactId;
+  let audio = null;
+  const fmt = (s) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "");
+  const ensure = () => {
+    if (audio) return audio;
+    audio = new Audio(`/api/history/${contactId}/audio?key=${encodeURIComponent(key)}`);
+    audio.addEventListener("timeupdate", () => { fill.style.width = `${(audio.currentTime / (audio.duration || 1)) * 100}%`; time.textContent = fmt(audio.currentTime); });
+    audio.addEventListener("loadedmetadata", () => { time.textContent = fmt(audio.duration); });
+    audio.addEventListener("play", () => btn.replaceChildren(icon("pause")));
+    audio.addEventListener("pause", () => btn.replaceChildren(icon("play")));
+    audio.addEventListener("ended", () => { fill.style.width = "0"; time.textContent = fmt(audio.duration); });
+    audio.addEventListener("error", () => { box.classList.add("error"); box.replaceChildren("Audio no disponible (WhatsApp ya no lo tiene)."); });
+    return audio;
+  };
+  btn.addEventListener("click", () => {
+    const a = ensure();
+    if (activeAudio && activeAudio !== a) activeAudio.pause();
+    activeAudio = a;
+    if (a.paused) a.play().catch(() => {}); else a.pause();
+  });
+  track.addEventListener("click", (e) => {
+    const a = ensure();
+    const r = track.getBoundingClientRect();
+    const seek = () => { a.currentTime = ((e.clientX - r.left) / r.width) * (a.duration || 0); };
+    if (a.readyState >= 1) seek(); else a.addEventListener("loadedmetadata", seek, { once: true });
+  });
+  return box;
+}
+
+// ---------- historial de chats (panel derecho) ----------
+function renderChatPanel() {
+  const panel = $("chatPanel");
+  const all = state.messages.filter((m) => m.role !== "internal");
+  const clientCount = all.filter((m) => m.role === "client").length;
+  const agentCount = all.length - clientCount;
+  const agentNames = new Map();
+  for (const m of all) if (m.role !== "client" && m.name && m.name !== "WhatsApp") agentNames.set(m.name, (agentNames.get(m.name) ?? 0) + 1);
+  const agentName = [...agentNames].sort((a, b) => b[1] - a[1])[0]?.[0] || "Agente";
+  const clientName = firstName(state.meta?.name) || "Cliente";
+  const pct = (n) => (all.length ? Math.round((n / all.length) * 100) : 0);
+
+  const search = el("input", { placeholder: "Buscar en el chat", value: state.chatQuery });
+  search.addEventListener("input", () => { state.chatQuery = search.value; $("chatList").replaceWith(chatList()); });
+
+  panel.replaceChildren(
+    el("div", { class: "chat-head" }, el("h3", {}, "Historial de chats"), el("span", { class: "pill" }, state.messages.length),
+      el("button", { class: "btn small", onclick: openImport, title: "Importar la exportación de WhatsApp del teléfono" }, icon("upload"), "Importar chat")),
+    el("div", { class: "chat-tools" },
+      el("div", { class: "search" }, icon("search"), search),
+      el("div", { class: "part-head" }, el("span", {}, "Participación"), el("span", {}, "por mensajes")),
+      el("div", { class: "part-bar" }, el("i", { style: `width:${pct(agentCount)}%;background:var(--brand-ink)` }), el("i", { style: `width:${pct(clientCount)}%;background:var(--green)` })),
+      el("div", { class: "legend" },
+        el("span", {}, el("i", { class: "dot", style: "background:var(--brand-ink)" }), `${firstName(agentName) || agentName} · ${pct(agentCount)}%`),
+        el("span", {}, el("i", { class: "dot" }), `${clientName} · ${pct(clientCount)}%`)),
+      state.onlyWA ? el("span", { class: "filter-chip" }, "Solo los que no llegaron a Chatwoot",
+        el("button", { title: "Quitar filtro", onclick: (e) => { e.stopPropagation(); state.onlyWA = false; renderChatPanel(); } }, icon("x"))) : null),
+    chatList());
+  const list = $("chatList");
+  list.scrollTop = list.scrollHeight;
+}
+
+function chatList() {
+  const q = state.chatQuery.trim().toLowerCase();
+  const items = state.messages.filter((m) => (!state.onlyWA || m.onlyWhatsApp) && (!q || m.text.toLowerCase().includes(q) || (m.name || "").toLowerCase().includes(q)));
+  const list = el("div", { class: "chat-list", id: "chatList" });
+  if (!items.length) { list.append(el("div", { class: "empty" }, q ? "Ningún mensaje coincide." : "Sin mensajes.")); return list; }
+  const highlight = (text) => {
+    if (!q) return text;
+    const i = text.toLowerCase().indexOf(q);
+    return i < 0 ? text : [text.slice(0, i), el("mark", {}, text.slice(i, i + q.length)), text.slice(i + q.length)];
+  };
+  // Un bloque por día: la fecha queda fija arriba solo mientras se ven los mensajes de ese día.
+  let lastDay = "", group = null;
+  for (const m of items) {
+    const day = dayLabel(m.at);
+    if (day !== lastDay) {
+      group = el("section", { class: "day-group" }, el("div", { class: "day" }, el("span", { title: day }, dayTitle(m.at))));
+      list.append(group);
+      lastDay = day;
+    }
+    const isClient = m.role === "client";
+    const name = m.name || (isClient ? "Cliente" : m.role === "bot" ? "Bot" : "Agente");
+    const text = m.kind === "audio" ? m.text.replace(/^\(nota de voz\)\s*/, "") : m.text;
+    group.append(el("div", { class: "cmsg" + (m.role === "internal" ? " internal" : ""), "data-min": minuteKey(m.at) },
+      el("span", { class: "avatar " + (isClient ? "green" : "brand") }, initials(name)),
+      el("div", { style: "min-width:0" },
+        el("div", { class: "who" }, el("b", { class: isClient ? "who-client" : "who-agent" }, firstName(name) || name), el("time", {}, hhmm(m.at)),
+          m.onlyWhatsApp ? el("span", { class: "badge-wa", title: "Está en WhatsApp pero nunca llegó a Chatwoot" }, "solo WA") : null,
+          m.role === "internal" ? el("span", { class: "badge-note" }, "nota interna") : null),
+        playable(m) ? player(m.audioKey) : null,
+        el("div", { class: "text" }, highlight(text)))));
+  }
+  return list;
+}
+
+// ---------- exportar ----------
+function downloadTranscript() {
+  const a = el("a", { href: `/api/history/${state.contactId}/transcript`, download: "" });
+  document.body.append(a); a.click(); a.remove();
+}
+function downloadThread() {
+  const thread = currentThread();
+  if (!thread?.messages.some((m) => m.role === "user")) return setSyncStatus("Esta conversación todavía no tiene preguntas.", true);
+  const name = state.meta?.name || `contacto ${state.contactId}`;
+  const md = [`# Análisis de ${name}`, `Conversación del ${shortDate(thread.createdAt)}`, ""];
+  for (const m of thread.messages) {
+    if (m.role === "user") md.push(`## ${m.text}`, "");
+    else if (m.role === "model") md.push(m.error ? `> ${m.text}` : m.text, m.model ? `\n_Respondido por ${m.model} · ${shortDate(m.at)}_` : "", "");
+    else md.push(`> ${m.text}`, "");
+  }
+  const url = URL.createObjectURL(new Blob([md.join("\n")], { type: "text/markdown" }));
+  const a = el("a", { href: url, download: `analisis-${name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "-")}.md` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------- importar chat de WhatsApp ----------
+function openImport() {
+  closeMenu();
+  $("importFile").value = "";
+  $("importStatus").textContent = "";
+  $("importStatus").className = "import-status";
+  $("importBar").hidden = true;
+  $("startImport").disabled = true;
+  $("importDlg").showModal();
+}
+/** Por internet el pedido pasa por Cloudflare, que no acepta cuerpos de más de 100 MB. */
+const UPLOAD_LIMIT = 100 * 1024 ** 2;
+const tooBigForInternet = (f) => location.protocol === "https:" && f.size > UPLOAD_LIMIT;
+$("importFile").addEventListener("change", () => {
+  const f = $("importFile").files[0];
+  const status = $("importStatus");
+  status.className = "import-status";
+  $("startImport").disabled = !f;
+  status.textContent = f ? `${f.name} · ${(f.size / 1024 ** 2).toFixed(0)} MB` : "";
+  if (f && tooBigForInternet(f)) {
+    status.className = "import-status err";
+    status.textContent = `El archivo pesa ${(f.size / 1024 ** 2).toFixed(0)} MB y por internet se aceptan hasta 100 MB. Impórtelo desde la red local, entrando por la IP del servidor (puerto 8790), donde no hay ese límite.`;
+    $("startImport").disabled = true;
+  }
+});
+$("startImport").addEventListener("click", () => {
+  const file = $("importFile").files[0];
+  const contactId = state.contactId;
+  if (!file || !contactId || tooBigForInternet(file)) return;
+  const status = $("importStatus"), fill = $("importFill");
+  $("importBar").hidden = false;
+  $("startImport").disabled = true;
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", `/api/history/${contactId}/import`);
+  xhr.setRequestHeader("content-type", "application/zip");
+  xhr.upload.onprogress = (e) => {
+    if (!e.lengthComputable) return;
+    const p = e.loaded / e.total;
+    fill.style.width = `${Math.round(p * 100)}%`;
+    status.textContent = p < 1 ? `Subiendo… ${Math.round(p * 100)} %` : "Extrayendo el chat y las notas de voz…";
+  };
+  xhr.onload = () => {
+    if (xhr.status === 401) return toLogin();
+    let body = {};
+    try { body = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 400) {
+      status.className = "import-status err";
+      status.textContent = body.error || `Error ${xhr.status}`;
+      $("startImport").disabled = false;
+      return;
+    }
+    $("importDlg").close();
+    if (state.contactId === contactId) { watchSync(contactId); setSyncStatus(`Chat importado (${body.audios} notas de voz). Actualizando…`, false, true); }
+  };
+  xhr.onerror = () => { status.className = "import-status err"; status.textContent = "Se cortó la conexión al subir el archivo."; $("startImport").disabled = false; };
+  xhr.send(file);
+});
+$("cancelImport").addEventListener("click", () => $("importDlg").close());
+$("closeImport").addEventListener("click", () => $("importDlg").close());
+
+// ---------- nuevo contacto (no está en Chatwoot) ----------
+/** Sube el zip de "Exportar chat" de WhatsApp; con build=false no se actualiza todavía el historial. */
+function uploadZip(contactId, file, onProgress, build = true) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/history/${contactId}/import${build ? "" : "?build=0"}`);
+    xhr.setRequestHeader("content-type", "application/zip");
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    xhr.onload = () => {
+      if (xhr.status === 401) { toLogin(); return reject(new Error("Su sesión venció.")); }
+      let body = {};
+      try { body = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status >= 400) reject(new Error(body.error || `Error ${xhr.status}`));
+      else resolve(body);
+    };
+    xhr.onerror = () => reject(new Error("Se cortó la conexión al subir el archivo."));
+    xhr.send(file);
+  });
+}
+
+/** prefill: { name, phone } (p. ej. lo que se buscó y no apareció en Chatwoot). */
+function openNewContact(prefill = {}) {
+  closeMenu();
+  state.nc = null;
+  $("ncName").value = prefill.name || "";
+  $("ncPhone").value = prefill.phone || "";
+  $("ncFile").value = "";
+  $("ncStatus").textContent = "";
+  $("ncStatus").className = "import-status";
+  $("ncSenders").hidden = true;
+  $("ncBar").hidden = true;
+  $("ncSubmit").disabled = false;
+  $("ncSubmit").textContent = "Crear e importar";
+  for (const id of ["ncName", "ncPhone", "ncFile"]) $(id).disabled = false;
+  $("newContactDlg").showModal();
+  ($("ncName").value ? $("ncPhone") : $("ncName")).focus();
+}
+
+function ncFail(message) {
+  $("ncStatus").className = "import-status err";
+  $("ncStatus").textContent = message;
+  $("ncSubmit").disabled = false;
+}
+function ncInfo(message) {
+  $("ncStatus").className = "import-status";
+  $("ncStatus").textContent = message;
+}
+
+async function ncStartAnalysis(contactId) {
+  await api(`/api/history/${contactId}/build`, { method: "POST" });
+  $("newContactDlg").close();
+  loadHistories();
+  loadAllContacts(1);
+  go(contactId); // muestra "Analizando…" hasta que termina
+}
+
+async function ncSubmit() {
+  // Segundo paso: ya se subió el chat y falta decir quién es el cliente.
+  if (state.nc?.awaitingSender) {
+    const sender = document.querySelector('input[name="ncSender"]:checked')?.value;
+    if (!sender) return ncFail("Elija quién es el cliente en este chat.");
+    $("ncSubmit").disabled = true;
+    try {
+      await api(`/api/history/${state.nc.id}/export-client`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sender }) });
+      await ncStartAnalysis(state.nc.id);
+    } catch (e) { ncFail(e.message); }
+    return;
+  }
+
+  const name = $("ncName").value.trim();
+  const phone = $("ncPhone").value.trim();
+  const file = $("ncFile").files[0];
+  if (!name) return ncFail("Escriba el nombre del contacto.");
+  if (!phone) return ncFail("Escriba el teléfono con indicativo, p. ej. +57 300 123 4567.");
+  if (file && tooBigForInternet(file)) return ncFail(`El archivo pesa ${(file.size / 1024 ** 2).toFixed(0)} MB y por internet se aceptan hasta 100 MB. Impórtelo desde la red local, entrando por la IP del servidor (puerto 8790).`);
+  $("ncSubmit").disabled = true;
+  try {
+    ncInfo("Creando el contacto en Chatwoot…");
+    const contact = await api("/api/contacts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, phone }) });
+    state.nc = { id: contact.id };
+    for (const id of ["ncName", "ncPhone", "ncFile"]) $(id).disabled = true;
+    if (contact.existed) toast("Ese teléfono ya estaba en Chatwoot: se usa el contacto existente.");
+    if (!file) return await ncStartAnalysis(contact.id);
+
+    $("ncBar").hidden = false;
+    const up = await uploadZip(contact.id, file, (pct) => {
+      $("ncFill").style.width = `${Math.round(pct * 100)}%`;
+      ncInfo(pct < 1 ? `Subiendo el chat… ${Math.round(pct * 100)} %` : "Leyendo el chat y las notas de voz…");
+    }, false);
+    $("ncBar").hidden = true;
+    const senders = up.senders || [];
+    if (senders.length === 0) return ncFail("El chat no tiene mensajes.");
+    // Quién es el cliente: se sugiere el que se parece al nombre o al teléfono; el usuario confirma.
+    state.nc.awaitingSender = true;
+    const guess = up.guess || null;
+    $("ncSenders").replaceChildren(
+      el("div", { class: "q" }, "¿Quién es el cliente en este chat?"),
+      ...senders.slice(0, 8).map((sd) => el("label", { class: "sender" },
+        el("input", { type: "radio", name: "ncSender", value: sd.name, checked: sd.name === guess }),
+        el("span", {}, sd.name),
+        el("span", { class: "c" }, `${sd.messages} mensajes`))));
+    $("ncSenders").hidden = false;
+    ncInfo(`Chat subido: ${up.messages} mensajes y ${up.audios} notas de voz.`);
+    $("ncSubmit").textContent = "Analizar chat";
+    $("ncSubmit").disabled = false;
+  } catch (e) {
+    ncFail(e.message);
+  }
+}
+$("ncSubmit").addEventListener("click", ncSubmit);
+$("ncCancel").addEventListener("click", () => $("newContactDlg").close());
+$("closeNewContact").addEventListener("click", () => $("newContactDlg").close());
+$("ncFile").addEventListener("change", () => {
+  const f = $("ncFile").files[0];
+  if (f && tooBigForInternet(f)) ncFail(`El archivo pesa ${(f.size / 1024 ** 2).toFixed(0)} MB y por internet se aceptan hasta 100 MB. Impórtelo desde la red local, entrando por la IP del servidor (puerto 8790).`);
+  else ncInfo(f ? `${f.name} · ${(f.size / 1024 ** 2).toFixed(0)} MB` : "");
+});
+
+/** Lo buscado va al campo que corresponde: un número al teléfono, un texto al nombre. */
+const prefillFrom = (q) => (/^[+\d][\d\s()-]{6,}$/.test(q.trim()) ? { phone: q.trim() } : { name: q.trim() });
+
+// ---------- transcript ----------
+function openTranscript() {
+  $("transcriptFilter").value = "";
+  renderTranscript("");
+  $("transcriptDlg").showModal();
+  $("transcriptFilter").focus();
+}
+function renderTranscript(filter) {
+  const lines = (state.transcript || "").split("\n");
+  const f = filter.trim().toLowerCase();
+  const shown = f ? lines.filter((l) => l.toLowerCase().includes(f)) : lines;
+  // Se resalta sobre el texto ya escapado, así que el patrón también va escapado.
+  const re = f ? new RegExp(esc(f).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi") : null;
+  $("transcriptPre").innerHTML = shown.map((l) => (re ? esc(l).replace(re, (m) => `<mark>${m}</mark>`) : esc(l))).join("\n") || "Sin coincidencias.";
+}
+$("transcriptFilter").addEventListener("input", (ev) => renderTranscript(ev.target.value));
+$("closeTranscript").addEventListener("click", () => $("transcriptDlg").close());
+
+// ---------- cuenta ----------
+function toast(text) {
+  const t = el("div", { class: "toast", role: "status" }, text);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+function renderMe() {
+  const me = state.me;
+  const admin = me.role === "admin";
+  const menu = (e) => {
+    e.stopPropagation();
+    openMenu(e.currentTarget, [
+      ...(admin ? [{ icon: "sliders", label: "Panel de control", action: () => { location.href = "/panel"; } }] : []),
+      { icon: "key", label: "Cambiar contraseña", action: () => openPasswordDialog(false) },
+      "sep",
+      { icon: "logout", label: "Cerrar sesión", action: logout },
+    ]);
+  };
+  $("me").replaceChildren(
+    el("button", { class: "avatar brand me-avatar", title: `${me.name || me.username} · cuenta`, onclick: menu }, initials(me.name || me.username)),
+    el("div", { class: "who" }, el("b", {}, me.name || me.username), el("span", {}, `${me.username} · ${admin ? "administrador" : "analista"}`)),
+    el("button", { class: "icon-btn bare", title: "Cuenta", onclick: menu }, icon("more")));
+  document.querySelectorAll(".admin-only").forEach((n) => (n.hidden = !admin));
+}
+
+async function logout() {
+  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+  location.replace("/login");
+}
+
+/** forced: la contraseña inicial se compartió por fuera y hay que cambiarla antes de usar la app. */
+function openPasswordDialog(forced) {
+  state.passwordForced = forced;
+  $("passwordForm").reset();
+  $("pwUser").value = state.me.username;
+  $("passwordStatus").textContent = "";
+  $("passwordStatus").className = "import-status";
+  $("passwordTitle").textContent = forced ? "Cree su contraseña" : "Cambiar contraseña";
+  $("passwordIntro").textContent = forced
+    ? "Por seguridad, cambie la contraseña inicial antes de continuar. Use al menos 10 caracteres."
+    : "Use al menos 10 caracteres. Las demás sesiones abiertas con su usuario se cerrarán.";
+  $("closePassword").hidden = forced;
+  $("cancelPassword").textContent = forced ? "Cerrar sesión" : "Cancelar";
+  $("passwordDlg").showModal();
+  $("pwCurrent").focus();
+}
+$("passwordDlg").addEventListener("cancel", (e) => { if (state.passwordForced) e.preventDefault(); });
+$("closePassword").addEventListener("click", () => $("passwordDlg").close());
+$("cancelPassword").addEventListener("click", () => (state.passwordForced ? logout() : $("passwordDlg").close()));
+$("passwordForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = $("passwordStatus");
+  const fail = (message) => { status.className = "import-status err"; status.textContent = message; };
+  const current = $("pwCurrent").value, next = $("pwNext").value;
+  if (!current) return fail("Escriba la contraseña actual.");
+  if (next.length < 10) return fail("La contraseña nueva debe tener al menos 10 caracteres.");
+  if (next !== $("pwConfirm").value) return fail("Las dos contraseñas nuevas no coinciden.");
+  $("savePassword").disabled = true;
+  try {
+    await api("/api/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ current, next }) });
+    if (state.passwordForced) return location.reload();
+    $("passwordDlg").close();
+    toast("Contraseña actualizada. Las demás sesiones se cerraron.");
+  } catch (err) {
+    fail(err.message);
+  } finally {
+    $("savePassword").disabled = false;
+  }
+});
+
+// ---------- arranque ----------
+fillIcons();
+$("collapseSide").replaceChildren(icon("panel"));
+$("closeImport").replaceChildren(icon("x"));
+$("closePassword").replaceChildren(icon("x"));
+$("closeNewContact").replaceChildren(icon("x"));
+$("refreshContacts").replaceChildren(icon("refresh"));
+// Barra lateral plegable (queda una columna de íconos) y lista de contactos desplegable; ambas se recuerdan.
+function readPref(key, fallback) {
+  try { const v = localStorage.getItem(key); return v === null ? fallback : v === "1"; } catch { return fallback; }
+}
+function writePref(key, value) {
+  try { localStorage.setItem(key, value ? "1" : "0"); } catch {}
+}
+function saveSidePref() {
+  const collapsed = $("app").classList.contains("no-side");
+  writePref("cca.sideCollapsed", collapsed);
+  $("collapseSide").title = collapsed ? "Mostrar panel" : "Ocultar panel";
+}
+function setContactsOpen(open) {
+  $("contactsSec").classList.toggle("open", open);
+  $("contactsToggle").setAttribute("aria-expanded", String(open));
+  writePref("cca.contactsOpen", open);
+}
+if (readPref("cca.sideCollapsed", false)) $("app").classList.add("no-side");
+saveSidePref();
+setContactsOpen(readPref("cca.contactsOpen", true));
+$("contactsToggle").addEventListener("click", () => setContactsOpen(!$("contactsSec").classList.contains("open")));
+$("collapseSide").addEventListener("click", () => {
+  // En el celular la barra es un cajón: el botón la cierra.
+  if (innerWidth <= 760) return $("app").classList.remove("show-side");
+  $("app").classList.toggle("no-side");
+  saveSidePref();
+});
+$("searchForm").addEventListener("submit", (e) => { e.preventDefault(); runSearch(); });
+$("analyzeBtn").addEventListener("click", () => ($("app").classList.contains("no-side") && innerWidth > 760 ? focusSearch() : runSearch()));
+$("refreshContacts").addEventListener("click", () => { loadHistories(); loadAllContacts(1); });
+document.querySelectorAll("#contactsSec .seg button").forEach((b) => b.addEventListener("click", () => { state.results = null; state.contactsTab = b.dataset.tab; renderContacts(); }));
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); focusSearch(); }
+});
+document.addEventListener("click", (e) => {
+  // En pantallas angostas, un clic afuera cierra los cajones laterales.
+  const app = $("app");
+  if (app.classList.contains("show-side") && !$("side").contains(e.target)) app.classList.remove("show-side");
+  if (app.classList.contains("show-chat") && !$("chatPanel").contains(e.target) && !e.target.closest?.(".ts-link")) app.classList.remove("show-chat");
+});
+
+async function boot() {
+  try {
+    state.me = await api("/api/me");
+  } catch (err) {
+    if (!leaving) renderMain(el("div", { class: "welcome" }, err.message));
+    return;
+  }
+  renderMe();
+  if (state.me.mustChangePassword) {
+    $("contacts").replaceChildren();
+    renderWelcome();
+    return openPasswordDialog(true);
+  }
+  loadHistories();
+  loadAllContacts(1);
+  loadUsage();
+  route();
+}
+boot();
+</script>
+</body>
+</html>

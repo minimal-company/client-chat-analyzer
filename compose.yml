@@ -1,0 +1,70 @@
+# Dos formas de uso, que comparten ./data (historiales, caché de transcripciones, usuarios y sesiones):
+#
+#   Interfaz web (queda corriendo):   docker compose up -d web
+#       por internet:  https://analizador.minimal-company.com  (Cloudflare Tunnel -> Traefik -> web)
+#       en la LAN:     http://<ip-del-servidor>:8790           (sin el límite de 100 MB de Cloudflare)
+#   Línea de comandos (a demanda):    ./cca ask conv:18            (= docker compose run --rm analyzer ask conv:18)
+#   Usuarios de la web:               ./cca user list | add <usuario> | reset <usuario> | remove <usuario>
+
+x-common: &common
+  build: .
+  image: client-chat-analyzer
+  env_file: .env
+  environment:
+    # Redes internas de Docker: no pasan por Cloudflare ni necesitan dominios públicos.
+    CHATWOOT_BASE_URL: http://chatwoot-rails:3000
+    EVOLUTION_BASE_URL: http://evolution-api:8080
+    DATA_DIR: /app/data
+  volumes:
+    - ./data:/app/data
+  networks:
+    - chatwoot
+    - evolution
+
+services:
+  web:
+    <<: *common
+    command: web
+    restart: unless-stopped
+    environment:
+      CHATWOOT_BASE_URL: http://chatwoot-rails:3000
+      EVOLUTION_BASE_URL: http://evolution-api:8080
+      DATA_DIR: /app/data
+      PUBLIC_URL: https://analizador.minimal-company.com
+    ports:
+      - "8790:8790"
+    labels:
+      # Traefik (el de Dokploy) atiende el dominio; el túnel de Cloudflare le entrega el tráfico por el puerto 80.
+      - traefik.enable=true
+      - traefik.docker.network=chatwoot-chatwoot-njyzd4
+      - traefik.http.routers.client-chat-analyzer.rule=Host(`analizador.minimal-company.com`)
+      - traefik.http.routers.client-chat-analyzer.entrypoints=web
+      - traefik.http.services.client-chat-analyzer.loadbalancer.server.port=8790
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8790/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  analyzer:
+    <<: *common
+    profiles: [cli] # no arranca con "up"; solo con "run"
+    stdin_open: true
+    tty: true
+
+networks:
+  chatwoot:
+    external: true
+    # Red de la app de Chatwoot que crea Dokploy (el contenedor rails responde ahí como chatwoot-rails).
+    # Traefik también está en esta red, así que llega al servicio web por acá.
+    name: chatwoot-chatwoot-njyzd4
+  evolution:
+    external: true
+    # Red del compose de Evolution API (~/evolution-docker): segunda fuente de mensajes de WhatsApp.
+    name: evolution-docker_default

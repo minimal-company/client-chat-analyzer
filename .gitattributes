@@ -1,0 +1,4 @@
+# Saltos de línea LF en todas las plataformas: el código se despliega desde Windows a Linux y un
+# docker-entrypoint.sh o ./cca con CRLF no arranca.
+* text=auto eol=lf
+*.png binary
