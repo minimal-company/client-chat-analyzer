@@ -97,13 +97,9 @@
   .tile { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 600 12px var(--mono); flex: none; background: var(--surface-3); color: var(--ink-2); }
   .tile.lg { width: 44px; height: 44px; border-radius: 10px; font-size: 14px; }
   .tile.sm { width: 22px; height: 22px; border-radius: 6px; font-size: 10px; }
-  .tile.t-gemini { background: rgba(66,133,244,.16); color: #9bbcff; }
-  .tile.t-openai { background: var(--green-soft); color: var(--green); }
-  .tile.t-anthropic { background: rgba(217,119,87,.16); color: #e6a07f; }
-  .tile.t-deepseek { background: rgba(99,102,241,.18); color: #a9acf7; }
   .tile.t-cw { background: var(--brand-soft); color: var(--brand-ink); }
   .tile.t-wa { background: var(--green-soft); color: var(--green); }
-  /* logos oficiales de las integraciones */
+  /* logos oficiales de las integraciones y de los proveedores de IA (LobeHub Icons, MIT) */
   .tile.brand { background: var(--surface-3); }
   .tile.brand img { width: 62%; height: 62%; display: block; }
 
@@ -334,10 +330,11 @@ const S = {
 
 const STATUS_LABEL = { ok: "Conectado", unset: "Sin configurar", invalid: "Clave inválida", error: "Error", off: "Desactivado" };
 const pill = (state, text) => el("span", { class: `pill-s ${state === "unset" || state === "off" ? "" : state}` }, text || STATUS_LABEL[state] || state);
-const TILE = { gemini: ["G", "t-gemini"], openai: ["OA", "t-openai"], anthropic: ["A", "t-anthropic"], deepseek: ["DS", "t-deepseek"], openrouter: ["OR", ""] };
+/** Proveedores con logo oficial en public/assets/brands/<id>.svg; los propios llevan sus iniciales. */
+const PROVIDER_LOGOS = new Set(["gemini", "openai", "anthropic", "deepseek", "openrouter"]);
 function tile(p, size = "") {
-  const [text, cls] = TILE[p.id] || [initials(p.name).slice(0, 2), ""];
-  return el("span", { class: `tile ${size} ${cls}` }, text);
+  if (PROVIDER_LOGOS.has(p.id)) return brandTile(p.id, p.name, size);
+  return el("span", { class: `tile ${size}` }, initials(p.name).slice(0, 2));
 }
 
 function resetDrafts() {

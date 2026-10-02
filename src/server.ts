@@ -111,17 +111,26 @@ class HttpError extends Error {
 
 // ---------- seguridad: HTTPS, origen, cookies, cabeceras ----------
 
-/** El pedido llegó por HTTPS a Cloudflare (el túnel entrega HTTP a Traefik, pero Cloudflare lo avisa en cf-visitor). */
+/** El pedido llegó por HTTPS: Traefik lo avisa en x-forwarded-proto (y Cloudflare, si volviera a estar delante, en cf-visitor). */
 function viaHttps(req: IncomingMessage): boolean {
   if (/"scheme":"https"/.test(String(req.headers["cf-visitor"] ?? ""))) return true;
   if (String(req.headers["x-forwarded-proto"] ?? "").split(",")[0].trim() === "https") return true;
   return !!PUBLIC_HOST && req.headers.host === PUBLIC_HOST && publicUrl.startsWith("https:");
 }
 
-/** IP real del visitante: Cloudflare la pone en cf-connecting-ip; en la LAN, la del socket. */
+/**
+ * IP real del visitante. Por internet llega desde Traefik (una IP interna de Docker), que agrega la del
+ * visitante al final de x-forwarded-for y descarta la que este mande; por la LAN (puerto 8790), la del
+ * socket. No se confía en cf-connecting-ip ni en x-forwarded-for de nadie más: sin Cloudflare delante,
+ * cualquiera podría inventarlas para saltarse el límite de intentos de ingreso.
+ */
 function clientIp(req: IncomingMessage): string {
-  const cf = String(req.headers["cf-connecting-ip"] ?? "").trim();
-  return (cf || req.socket.remoteAddress || "?").slice(0, 64);
+  const socket = (req.socket.remoteAddress ?? "").replace(/^::ffff:/, "");
+  if (/^(172\.(1[6-9]|2\d|3[01])|10)\./.test(socket)) {
+    const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").pop()?.trim();
+    if (forwarded) return forwarded.slice(0, 64);
+  }
+  return (socket || "?").slice(0, 64);
 }
 
 /**

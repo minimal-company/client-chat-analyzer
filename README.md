@@ -31,10 +31,10 @@ visuales.
 docker compose up -d --build web      # queda corriendo, reinicia sola con el servidor
 ```
 
-- **Por internet:** https://analizador.minimal-company.com (Cloudflare Tunnel `chatwoot` → Traefik de
-  Dokploy → servicio `web`; el certificado lo pone Cloudflare).
-- **En la LAN:** `http://<ip-del-servidor>:8790` (http://192.168.1.36:8790). Sirve para importar chats de
-  más de 100 MB, que Cloudflare no deja pasar.
+- **Por internet:** https://analizador.minimal-company.com (router, puerto 443 → Traefik de Dokploy →
+  servicio `web`; certificado de Let's Encrypt). Sin Cloudflare de por medio, así que se pueden importar
+  chats de cualquier tamaño (hasta 4 GB).
+- **En la LAN:** `http://<ip-del-servidor>:8790` (http://192.168.1.36:8790).
 
 Se entra con usuario y contraseña en una página propia (no la ventana del navegador). El primer
 usuario sale de `WEB_USER` / `WEB_PASSWORD` en `.env` y debe cambiar la contraseña al ingresar; los
@@ -90,10 +90,21 @@ Operación: `docker compose ps` muestra el estado de salud (`/healthz`); logs co
 Actualizar el código: copiar los archivos y repetir `up -d --build web`. Respalde `data/`: tiene los
 historiales, las conversaciones con Gemini y los usuarios.
 
-Publicación: el registro DNS se creó con `cloudflared tunnel route dns chatwoot
-analizador.minimal-company.com`; la regla del túnel va en `/etc/cloudflared/config.yml`
-(`hostname: analizador.minimal-company.com` → `http://localhost:80`, requiere sudo y reiniciar
-`cloudflared`) y las etiquetas de Traefik están en `compose.yml`.
+Publicación (sin túnel, directo a Traefik):
+
+1. **Router:** reenviar TCP 443 (y UDP 443 para HTTP/3) a `192.168.1.36:443`, y reservar esa IP por DHCP
+   para el servidor. El puerto 80 queda cerrado: por ahí Traefik atiende otros dominios (y el de Dokploy)
+   que no deben quedar expuestos sin Cloudflare.
+2. **DNS (Cloudflare):** `analizador` es un registro A, solo DNS (nube gris), a la IP pública de la casa.
+   La IP puede cambiar, así que la mantiene el servicio `ddns` (`docker compose up -d ddns`, con
+   `CLOUDFLARE_API_TOKEN` en `.env`: token con permiso Zone › DNS › Edit solo para minimal-company.com).
+3. **Traefik de Dokploy** (`/etc/dokploy/traefik/traefik.yml`, requiere sudo o el editor de Traefik de
+   Dokploy): el resolvedor `letsencrypt` usa `tlsChallenge: {}` en lugar de `httpChallenge` (el puerto 80
+   no está abierto), con un correo real, y la entrada `websecure` tiene
+   `transport.respondingTimeouts.readTimeout: 30m` (por defecto corta a los 60 s las subidas de chats
+   grandes). Después: `docker restart dokploy-traefik`.
+4. Las etiquetas de Traefik del servicio `web` están en `compose.yml` (router en `websecure` con
+   `tls.certresolver=letsencrypt`).
 
 ## Exportación del chat desde el teléfono (tercera fuente)
 

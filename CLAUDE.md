@@ -68,8 +68,12 @@ Privacy:
   (profile `cli`, run as `./cca ask | build-history | user …`). Both join the external networks
   `chatwoot-chatwoot-njyzd4` (Chatwoot rails answers as `chatwoot-rails:3000`; Traefik lives there too) and
   `evolution-docker_default` (`evolution-api:8080`).
-- `https://analizador.minimal-company.com` goes Cloudflare tunnel → Traefik → `web`. It only works if the
-  host's `/etc/cloudflared/config.yml` has the ingress rule. Anything that needs sudo on the box, the user runs.
+- `https://analizador.minimal-company.com` goes router port 443 → Dokploy's Traefik (`websecure`, Let's
+  Encrypt via TLS-ALPN) → `web`. No Cloudflare tunnel or proxy: the A record is DNS-only, and the `ddns`
+  service (profile `ddns`) keeps it on the home IP. Port 80 stays closed on the router, because Traefik's
+  `web` entrypoint also serves Dokploy and other hosts. The server takes the client IP from the last
+  `x-forwarded-for` entry only when the socket is a Docker address (Traefik). Steps are in the README.
+  Anything that needs sudo on the box, the user runs.
 - Chatwoot there is v4.0.3: `/contacts/:id/conversations` stops at 20 with no paging. Don't read the Chatwoot
   database directly; use its API.
 

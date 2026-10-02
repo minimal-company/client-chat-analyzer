@@ -131,8 +131,9 @@ modifica algo debe venir del mismo sitio (cabecera `Origin`).
   `chatwoot-rails:3000`); Traefik también está ahí y enruta `analizador.minimal-company.com` al servicio.
 - `evolution-docker_default`, la de Evolution API (`evolution-api:8080`).
 
-El dominio público llega por el túnel de Cloudflare del servidor (`/etc/cloudflared/config.yml`) hasta
-Traefik en el puerto 80. La imagen (`Dockerfile`) compila TypeScript en una etapa y en la final instala
+El dominio público (registro A solo DNS, que actualiza el servicio `ddns`) llega por el puerto 443 del
+router hasta Traefik, que termina TLS con un certificado de Let's Encrypt (reto TLS-ALPN). Los pasos están
+en la sección de publicación del README. La imagen (`Dockerfile`) compila TypeScript en una etapa y en la final instala
 solo dependencias de producción y ffmpeg.
 
 ## Herramientas (`scripts/`)

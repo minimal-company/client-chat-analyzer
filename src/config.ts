@@ -79,7 +79,7 @@ export function webConfig() {
     port: positiveInt("WEB_PORT", 8790),
     bootstrapUser: optionalEnv("WEB_USER", "admin"),
     bootstrapPassword: password || null,
-    // Dirección pública (detrás de Cloudflare), p. ej. https://analizador.minimal-company.com
+    // Dirección pública (Traefik con HTTPS), p. ej. https://analizador.minimal-company.com
     publicUrl: optionalEnv("PUBLIC_URL", "").replace(/\/+$/, ""),
   };
 }

@@ -1,8 +1,8 @@
 # Dos formas de uso, que comparten ./data (historiales, caché de transcripciones, usuarios y sesiones):
 #
 #   Interfaz web (queda corriendo):   docker compose up -d web
-#       por internet:  https://analizador.minimal-company.com  (Cloudflare Tunnel -> Traefik -> web)
-#       en la LAN:     http://<ip-del-servidor>:8790           (sin el límite de 100 MB de Cloudflare)
+#       por internet:  https://analizador.minimal-company.com  (router :443 -> Traefik de Dokploy -> web)
+#       en la LAN:     http://<ip-del-servidor>:8790
 #   Línea de comandos (a demanda):    ./cca ask conv:18            (= docker compose run --rm analyzer ask conv:18)
 #   Usuarios de la web:               ./cca user list | add <usuario> | reset <usuario> | remove <usuario>
 
@@ -34,11 +34,14 @@ services:
     ports:
       - "8790:8790"
     labels:
-      # Traefik (el de Dokploy) atiende el dominio; el túnel de Cloudflare le entrega el tráfico por el puerto 80.
+      # Traefik (el de Dokploy) atiende el dominio por HTTPS (puerto 443, reenviado desde el router) y saca el
+      # certificado de Let's Encrypt con el reto TLS-ALPN, así que el puerto 80 no necesita estar abierto.
       - traefik.enable=true
       - traefik.docker.network=chatwoot-chatwoot-njyzd4
       - traefik.http.routers.client-chat-analyzer.rule=Host(`analizador.minimal-company.com`)
-      - traefik.http.routers.client-chat-analyzer.entrypoints=web
+      - traefik.http.routers.client-chat-analyzer.entrypoints=websecure
+      - traefik.http.routers.client-chat-analyzer.tls=true
+      - traefik.http.routers.client-chat-analyzer.tls.certresolver=letsencrypt
       - traefik.http.services.client-chat-analyzer.loadbalancer.server.port=8790
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8790/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
@@ -51,6 +54,29 @@ services:
       options:
         max-size: 10m
         max-file: "5"
+
+  # Mantiene el registro A de analizador.minimal-company.com (solo DNS, nube gris) con la IP pública de la
+  # casa, que el proveedor puede cambiar. Necesita CLOUDFLARE_API_TOKEN en .env (permiso Zone > DNS > Edit,
+  # solo para minimal-company.com). Se arranca aparte: docker compose up -d ddns
+  ddns:
+    image: favonia/cloudflare-ddns:1
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [all]
+    security_opt: [no-new-privileges:true]
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      DOMAINS: analizador.minimal-company.com
+      PROXIED: "false"
+      IP6_PROVIDER: none
+      TZ: America/Bogota
+    profiles: [ddns]
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "3"
 
   analyzer:
     <<: *common

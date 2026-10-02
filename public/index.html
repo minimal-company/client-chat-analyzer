@@ -1866,25 +1866,26 @@ function openImport() {
   $("startImport").disabled = true;
   $("importDlg").showModal();
 }
-/** Por internet el pedido pasa por Cloudflare, que no acepta cuerpos de más de 100 MB. */
-const UPLOAD_LIMIT = 100 * 1024 ** 2;
-const tooBigForInternet = (f) => location.protocol === "https:" && f.size > UPLOAD_LIMIT;
+/** El servidor corta las subidas de más de 4 GB (MAX_ZIP_BYTES en src/import-zip.ts). */
+const UPLOAD_LIMIT = 4 * 1024 ** 3;
+const tooBig = (f) => f.size > UPLOAD_LIMIT;
+const tooBigMessage = (f) => `El archivo pesa ${(f.size / 1024 ** 3).toFixed(1)} GB y se aceptan hasta 4 GB.`;
 $("importFile").addEventListener("change", () => {
   const f = $("importFile").files[0];
   const status = $("importStatus");
   status.className = "import-status";
   $("startImport").disabled = !f;
   status.textContent = f ? `${f.name} · ${(f.size / 1024 ** 2).toFixed(0)} MB` : "";
-  if (f && tooBigForInternet(f)) {
+  if (f && tooBig(f)) {
     status.className = "import-status err";
-    status.textContent = `El archivo pesa ${(f.size / 1024 ** 2).toFixed(0)} MB y por internet se aceptan hasta 100 MB. Impórtelo desde la red local, entrando por la IP del servidor (puerto 8790), donde no hay ese límite.`;
+    status.textContent = tooBigMessage(f);
     $("startImport").disabled = true;
   }
 });
 $("startImport").addEventListener("click", () => {
   const file = $("importFile").files[0];
   const contactId = state.contactId;
-  if (!file || !contactId || tooBigForInternet(file)) return;
+  if (!file || !contactId || tooBig(file)) return;
   const status = $("importStatus"), fill = $("importFill");
   $("importBar").hidden = false;
   $("startImport").disabled = true;
@@ -1990,7 +1991,7 @@ async function ncSubmit() {
   const file = $("ncFile").files[0];
   if (!name) return ncFail("Escriba el nombre del contacto.");
   if (!phone) return ncFail("Escriba el teléfono con indicativo, p. ej. +57 300 123 4567.");
-  if (file && tooBigForInternet(file)) return ncFail(`El archivo pesa ${(file.size / 1024 ** 2).toFixed(0)} MB y por internet se aceptan hasta 100 MB. Impórtelo desde la red local, entrando por la IP del servidor (puerto 8790).`);
+  if (file && tooBig(file)) return ncFail(tooBigMessage(file));
   $("ncSubmit").disabled = true;
   try {
     ncInfo("Creando el contacto en Chatwoot…");
@@ -2030,7 +2031,7 @@ $("ncCancel").addEventListener("click", () => $("newContactDlg").close());
 $("closeNewContact").addEventListener("click", () => $("newContactDlg").close());
 $("ncFile").addEventListener("change", () => {
   const f = $("ncFile").files[0];
-  if (f && tooBigForInternet(f)) ncFail(`El archivo pesa ${(f.size / 1024 ** 2).toFixed(0)} MB y por internet se aceptan hasta 100 MB. Impórtelo desde la red local, entrando por la IP del servidor (puerto 8790).`);
+  if (f && tooBig(f)) ncFail(tooBigMessage(f));
   else ncInfo(f ? `${f.name} · ${(f.size / 1024 ** 2).toFixed(0)} MB` : "");
 });
 
